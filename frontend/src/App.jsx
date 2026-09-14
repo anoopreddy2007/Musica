@@ -51,6 +51,9 @@ function App() {
   const [selectedPlaylist, setSelectedPlaylist] = useState(null);
   const [playlistLoading, setPlaylistLoading] = useState(false);
   const [playlistPickerSong, setPlaylistPickerSong] = useState(null);
+  const [importingPlaylist, setImportingPlaylist] = useState(false);
+  const [importStatus, setImportStatus] = useState("");
+  const [importFileInputKey, setImportFileInputKey] = useState(0);
 
   // =========================================
   // EXPLORE
@@ -59,6 +62,12 @@ function App() {
   const [exploreSongs, setExploreSongs] = useState([]);
   const [exploreCategory, setExploreCategory] = useState("Trending");
   const [exploreLoading, setExploreLoading] = useState(false);
+
+  // LISTENING STATS
+  const [statsSongs, setStatsSongs] = useState([]);
+  const [statsPeriod, setStatsPeriod] = useState("7days");
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [top50PlaylistId, setTop50PlaylistId] = useState(null);
 
   const exploreCategories = [
     { name: "Trending", query: "trending songs" },
@@ -539,6 +548,467 @@ function App() {
   };
 
   // =========================================
+  // LISTENING STATS
+  // =========================================
+  const parseDurationSeconds = (value) => {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (!value) return 0;
+    const parts = String(value).trim().split(":").map(Number);
+    if (parts.some((part) => Number.isNaN(part))) return 0;
+    if (parts.length === 2) return parts[0] * 60 + parts[1];
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    return 0;
+  };
+
+  const formatStatsDuration = (seconds) => {
+    const total = Math.max(0, Math.round(seconds || 0));
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const secs = total % 60;
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${minutes}m ${secs}s`;
+  };
+
+  const buildStats = (history, period) => {
+    const days = { "7days": 7, "14days": 14, "1month": 30 }[period];
+    const cutoff = days ? Date.now() - days * 86400000 : 0;
+    const grouped = new Map();
+    (history || []).forEach((entry) => {
+      const timestamp = new Date(entry.playedAt || entry.played_at || 0).getTime();
+      if (days && (!timestamp || timestamp < cutoff)) return;
+      if (!entry.videoId) return;
+      const existing = grouped.get(entry.videoId);
+      if (existing) existing.playCount += 1;
+      else grouped.set(entry.videoId, { ...entry, playCount: 1, durationSeconds: parseDurationSeconds(entry.duration) });
+    });
+    return Array.from(grouped.values()).map((song) => ({
+      ...song,
+      totalSeconds: song.durationSeconds * song.playCount,
+    })).sort((a,b) => b.playCount - a.playCount || b.totalSeconds - a.totalSeconds).slice(0,50);
+  };
+
+  const updateTop50Playlist = async (topSongs) => {
+    try {
+      const listResponse = await fetch("http://127.0.0.1:8000/playlists");
+      if (!listResponse.ok) throw new Error("Failed to load playlists");
+      const listData = await listResponse.json();
+      let playlist = (listData.playlists || []).find((p) => p.name.trim().toLowerCase() === "my top 50 songs");
+      let playlistId = playlist?.id;
+      if (!playlistId) {
+        const createResponse = await fetch("http://127.0.0.1:8000/playlists", {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "My Top 50 Songs" })
+        });
+        const created = await createResponse.json();
+        if (!createResponse.ok || !created.success) throw new Error("Failed to create Top 50 playlist");
+        playlistId = created.playlist.id;
+      }
+      setTop50PlaylistId(playlistId);
+      const detailResponse = await fetch(`http://127.0.0.1:8000/playlists/${playlistId}`);
+      const detail = await detailResponse.json();
+      if (!detailResponse.ok || !detail.success) throw new Error("Failed to load Top 50 playlist");
+      for (const song of detail.playlist?.songs || []) {
+        await fetch(`http://127.0.0.1:8000/playlists/${playlistId}/songs/${song.videoId}`, { method: "DELETE" });
+      }
+      for (const song of topSongs) {
+        await fetch(`http://127.0.0.1:8000/playlists/${playlistId}/songs`, {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(song)
+        });
+      }
+      const refreshed = await fetch("http://127.0.0.1:8000/playlists");
+      if (refreshed.ok) setPlaylists((await refreshed.json()).playlists || []);
+    } catch (error) {
+      console.error("Failed to update Top 50 playlist:", error);
+    }
+  };
+
+  const loadStats = async (period = statsPeriod) => {
+    setStatsLoading(true);
+    try {
+      const response = await fetch("http://127.0.0.1:8000/history");
+      if (!response.ok) throw new Error("Failed to load history");
+      const data = await response.json();
+      const history = data.songs || [];
+      setHistorySongs(history);
+      const periodSongs = buildStats(history, period);
+      const allTimeTopSongs = buildStats(history, "alltime");
+      setStatsSongs(periodSongs);
+      await updateTop50Playlist(allTimeTopSongs);
+    } catch (error) {
+      console.error("Failed to load stats:", error);
+    } finally { setStatsLoading(false); }
+  };
+
+  useEffect(() => {
+    if (currentPage === "stats" && !searchQuery) loadStats(statsPeriod);
+  }, [currentPage, statsPeriod]);
+
+  // =========================================
+  // CSV IMPORT / EXPORT
+  // =========================================
+
+  const parseCsv = (text) => {
+    const rows = [];
+    let row = [];
+    let cell = "";
+    let inQuotes = false;
+
+    for (let i = 0; i < text.length; i += 1) {
+      const char = text[i];
+      const next = text[i + 1];
+
+      if (char === '"') {
+        if (inQuotes && next === '"') {
+          cell += '"';
+          i += 1;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === "," && !inQuotes) {
+        row.push(cell);
+        cell = "";
+      } else if ((char === "\n" || char === "\r") && !inQuotes) {
+        if (char === "\r" && next === "\n") {
+          i += 1;
+        }
+
+        row.push(cell);
+        cell = "";
+
+        if (row.some((value) => value.trim() !== "")) {
+          rows.push(row);
+        }
+
+        row = [];
+      } else {
+        cell += char;
+      }
+    }
+
+    if (cell !== "" || row.length > 0) {
+      row.push(cell);
+      if (row.some((value) => value.trim() !== "")) {
+        rows.push(row);
+      }
+    }
+
+    return rows;
+  };
+
+  const escapeCsvValue = (value) => {
+    const text = value == null ? "" : String(value);
+    return `"${text.replace(/"/g, '""')}"`;
+  };
+
+  const extractVideoId = (urlOrId) => {
+    if (!urlOrId) return "";
+
+    const value = String(urlOrId).trim();
+
+    // Also allow a plain YouTube video ID.
+    if (/^[A-Za-z0-9_-]{11}$/.test(value)) {
+      return value;
+    }
+
+    try {
+      const url = new URL(value);
+
+      if (url.hostname.includes("youtu.be")) {
+        return url.pathname.replace("/", "").split("/")[0];
+      }
+
+      if (
+        url.hostname.includes("youtube.com") ||
+        url.hostname.includes("music.youtube.com")
+      ) {
+        const queryId = url.searchParams.get("v");
+
+        if (queryId) {
+          return queryId;
+        }
+
+        const pathParts = url.pathname.split("/").filter(Boolean);
+
+        const embedIndex = pathParts.indexOf("embed");
+        if (embedIndex !== -1 && pathParts[embedIndex + 1]) {
+          return pathParts[embedIndex + 1];
+        }
+
+        const shortsIndex = pathParts.indexOf("shorts");
+        if (shortsIndex !== -1 && pathParts[shortsIndex + 1]) {
+          return pathParts[shortsIndex + 1];
+        }
+      }
+    } catch (error) {
+      // Invalid URL; return empty so the importer can report it.
+    }
+
+    return "";
+  };
+
+  const downloadCsv = (filename, rows) => {
+    const csv = rows.map((row) => row.map(escapeCsvValue).join(",")).join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    URL.revokeObjectURL(url);
+  };
+
+  const exportPlaylist = async () => {
+    if (!selectedPlaylist) return;
+
+    try {
+      const response = await fetch(
+        `http://127.0.0.1:8000/playlists/${selectedPlaylist.id}`
+      );
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Failed to load playlist");
+      }
+
+      const playlist = data.playlist;
+      const rows = [
+        ["title", "artists", "album", "duration", "url"],
+      ];
+
+      (playlist.songs || []).forEach((song) => {
+        const videoId = song.videoId || "";
+        const artists = Array.isArray(song.artists)
+          ? song.artists.join(", ")
+          : song.artists || "";
+
+        rows.push([
+          song.title || "",
+          artists,
+          song.album || "",
+          song.duration || "",
+          videoId ? `https://www.youtube.com/watch?v=${videoId}` : "",
+        ]);
+      });
+
+      const safeName =
+        (playlist.name || "musica-playlist")
+          .replace(/[<>:"/\\|?*]+/g, "")
+          .trim() || "musica-playlist";
+
+      downloadCsv(`${safeName}.csv`, rows);
+    } catch (error) {
+      console.error("Failed to export playlist:", error);
+      window.alert("Could not export playlist.");
+    }
+  };
+
+  const importPlaylistFromCsv = async (event) => {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    setImportingPlaylist(true);
+    setImportStatus("Reading CSV...");
+
+    try {
+      const text = await file.text();
+      const rows = parseCsv(text);
+
+      if (rows.length < 2) {
+        throw new Error("The CSV does not contain any songs.");
+      }
+
+      const headers = rows[0].map((header) =>
+        header.replace(/^\uFEFF/, "").trim().toLowerCase()
+      );
+
+      const getColumn = (row, names) => {
+        const index = names
+          .map((name) => headers.indexOf(name))
+          .find((index) => index !== -1);
+
+        return index === undefined ? "" : (row[index] || "").trim();
+      };
+
+      const urlIndex = ["url", "youtube_url", "youtube url", "link"]
+        .map((name) => headers.indexOf(name))
+        .find((index) => index !== -1);
+
+      if (urlIndex === undefined) {
+        throw new Error(
+          "CSV must contain a URL column (for example: url)."
+        );
+      }
+
+      const titleIndex = ["title", "song", "song_title", "song title", "name"]
+        .map((name) => headers.indexOf(name))
+        .find((index) => index !== -1);
+
+      if (titleIndex === undefined) {
+        throw new Error(
+          "CSV must contain a title column (for example: title)."
+        );
+      }
+
+      const songsToImport = [];
+      let skipped = 0;
+
+      rows.slice(1).forEach((row) => {
+        const title = (row[titleIndex] || "").trim();
+        const url = (row[urlIndex] || "").trim();
+        const videoId = extractVideoId(url);
+
+        if (!title || !videoId) {
+          skipped += 1;
+          return;
+        }
+
+        const artists = getColumn(row, [
+          "artists",
+          "artist",
+          "author",
+        ]);
+
+        const album = getColumn(row, ["album"]);
+        const duration = getColumn(row, [
+          "duration",
+          "length",
+          "time",
+        ]);
+
+        const existing = songsToImport.some(
+          (song) => song.videoId === videoId
+        );
+
+        if (existing) {
+          skipped += 1;
+          return;
+        }
+
+        songsToImport.push({
+          videoId,
+          title,
+          artists: artists
+            ? artists
+                .split(/\s*,\s*/)
+                .map((artist) => artist.trim())
+                .filter(Boolean)
+            : [],
+          album,
+          duration,
+          thumbnail: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+        });
+      });
+
+      if (songsToImport.length === 0) {
+        throw new Error("No valid YouTube songs were found in the CSV.");
+      }
+
+      const suggestedName =
+        file.name.replace(/\.csv$/i, "").trim() || "Imported Playlist";
+
+      const playlistName =
+        window.prompt("Playlist name:", suggestedName);
+
+      if (!playlistName || !playlistName.trim()) {
+        setImportStatus("");
+        return;
+      }
+
+      setImportStatus(
+        `Creating "${playlistName.trim()}" and importing ${songsToImport.length} songs...`
+      );
+
+      const playlistResponse = await fetch(
+        "http://127.0.0.1:8000/playlists",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: playlistName.trim(),
+          }),
+        }
+      );
+
+      const playlistData = await playlistResponse.json();
+
+      if (
+        !playlistResponse.ok ||
+        !playlistData.success ||
+        !playlistData.playlist?.id
+      ) {
+        throw new Error(
+          playlistData.message || "Failed to create imported playlist"
+        );
+      }
+
+      const playlistId = playlistData.playlist.id;
+      let imported = 0;
+      let failed = 0;
+
+      for (const song of songsToImport) {
+        try {
+          const response = await fetch(
+            `http://127.0.0.1:8000/playlists/${playlistId}/songs`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(song),
+            }
+          );
+
+          const data = await response.json();
+
+          if (response.ok && data.success) {
+            imported += 1;
+          } else {
+            failed += 1;
+          }
+
+          setImportStatus(
+            `Importing songs... ${imported + failed}/${songsToImport.length}`
+          );
+        } catch (error) {
+          failed += 1;
+        }
+      }
+
+      const playlistListResponse = await fetch(
+        "http://127.0.0.1:8000/playlists"
+      );
+
+      if (playlistListResponse.ok) {
+        const playlistListData = await playlistListResponse.json();
+        setPlaylists(playlistListData.playlists || []);
+      }
+
+      await openPlaylist(playlistId);
+
+      const skippedText = skipped > 0 ? `, ${skipped} skipped` : "";
+      const failedText = failed > 0 ? `, ${failed} failed` : "";
+
+      setImportStatus(
+        `Imported ${imported} songs${skippedText}${failedText}.`
+      );
+    } catch (error) {
+      console.error("CSV import failed:", error);
+      setImportStatus("");
+      window.alert(error.message || "Could not import CSV.");
+    } finally {
+      setImportingPlaylist(false);
+      setImportFileInputKey((previous) => previous + 1);
+    }
+  };
+
+  // =========================================
   // PLAYLIST HELPERS
   // =========================================
 
@@ -607,7 +1077,33 @@ function App() {
         throw new Error(data.message || "Failed to load playlist");
       }
 
-      setSelectedPlaylist(data.playlist);
+      let playlist = data.playlist;
+
+      // My Top 50 Songs must always be ordered by play count:
+      // #1 = most played, #2 = second most played, and so on.
+      if (playlist?.name?.trim().toLowerCase() === "my top 50 songs") {
+        const playCounts = new Map();
+        (historySongs || []).forEach((entry) => {
+          if (!entry?.videoId) return;
+          playCounts.set(
+            entry.videoId,
+            (playCounts.get(entry.videoId) || 0) + 1
+          );
+        });
+
+        playlist = {
+          ...playlist,
+          songs: [...(playlist.songs || [])].sort(
+            (a, b) => {
+              const countA = playCounts.get(a.videoId) || 0;
+              const countB = playCounts.get(b.videoId) || 0;
+              return countB - countA || a.title.localeCompare(b.title);
+            }
+          ),
+        };
+      }
+
+      setSelectedPlaylist(playlist);
       setCurrentPage("playlist");
       setSearchQuery("");
     } catch (error) {
@@ -1371,6 +1867,14 @@ function App() {
             <span>History</span>
           </button>
 
+          <button
+            className={`nav-item ${currentPage === "stats" ? "active" : ""}`}
+            onClick={() => { setCurrentPage("stats"); setSearchQuery(""); setSelectedPlaylist(null); }}
+          >
+            <span>▥</span>
+            <span>Stats</span>
+          </button>
+
         </div>
 
 
@@ -1462,6 +1966,12 @@ function App() {
         ===================================== */}
 
         <section className="content">
+          {importStatus && (
+            <div className="import-status-message">
+              {importStatus}
+            </div>
+          )}
+
 
           {/* =====================================
               LIKED SONGS PAGE
@@ -1794,12 +2304,33 @@ function App() {
                   </p>
                 </div>
 
-                <button
-                  className="library-create-button"
-                  onClick={createPlaylist}
-                >
-                  ＋ Create Playlist
-                </button>
+                <div className="library-actions">
+                  <button
+                    className="library-action-button"
+                    onClick={() =>
+                      document.getElementById("playlist-csv-import")?.click()
+                    }
+                    disabled={importingPlaylist}
+                  >
+                    {importingPlaylist ? "Importing..." : "📥 Import Playlist"}
+                  </button>
+
+                  <input
+                    key={importFileInputKey}
+                    id="playlist-csv-import"
+                    type="file"
+                    accept=".csv,text/csv"
+                    onChange={importPlaylistFromCsv}
+                    style={{ display: "none" }}
+                  />
+
+                  <button
+                    className="library-create-button"
+                    onClick={createPlaylist}
+                  >
+                    ＋ Create Playlist
+                  </button>
+                </div>
               </div>
 
 
@@ -1842,6 +2373,23 @@ function App() {
                   <span className="library-card-arrow">→</span>
                 </button>
 
+
+
+                <button
+                  className="library-card"
+                  onClick={() => {
+                    setCurrentPage("stats");
+                    setSearchQuery("");
+                    setSelectedPlaylist(null);
+                  }}
+                >
+                  <div className="library-card-icon">▥</div>
+                  <div className="library-card-info">
+                    <h3>Listening Stats</h3>
+                    <p>Top songs & listening history</p>
+                  </div>
+                  <span className="library-card-arrow">→</span>
+                </button>
               </div>
 
 
@@ -2171,6 +2719,50 @@ function App() {
 
           )}
 
+          {/* =========================================
+              STATS PAGE
+          ========================================= */}
+          {currentPage === "stats" && !searchQuery && (
+            <section className="stats-page">
+              <div className="stats-heading">
+                <div>
+                  <h1>Listening Stats</h1>
+                  <p>Your most listened songs based on your listening history.</p>
+                </div>
+                <button className="library-action-button" onClick={() => loadStats(statsPeriod)} disabled={statsLoading}>
+                  {statsLoading ? "Refreshing..." : "↻ Refresh"}
+                </button>
+              </div>
+              <div className="stats-periods">
+                {[["7days","Last 7 Days"],["14days","Last 14 Days"],["1month","Last Month"],["alltime","All Time"]].map(([value,label]) => (
+                  <button key={value} className={`stats-period ${statsPeriod === value ? "active" : ""}`} onClick={() => setStatsPeriod(value)}>{label}</button>
+                ))}
+              </div>
+              <div className="stats-top-card">
+                <div className="stats-top-card-icon">🏆</div>
+                <div><h2>My Top 50 Songs</h2><p>Separate playlist · {statsSongs.length} songs in this period</p></div>
+                {top50PlaylistId && <button className="stats-open-button" onClick={() => openPlaylist(top50PlaylistId)}>Open Playlist →</button>}
+              </div>
+              {statsSongs.length === 0 ? (
+                <div className="empty-state"><div className="empty-icon">▥</div><h3>No listening data yet</h3><p>Play some songs and your stats will appear here.</p></div>
+              ) : (
+                <div className="stats-table">
+                  <div className="stats-table-header"><span>#</span><span>Song</span><span>Album</span><span>Duration</span><span>Plays</span><span>Total Duration</span></div>
+                  {statsSongs.map((song,index) => (
+                    <div className={`stats-row ${selectedSong?.videoId === song.videoId ? "playing" : ""}`} key={`${song.videoId}-${index}`} onClick={() => playPlaylist(statsSongs,index,false)}>
+                      <span className="stats-rank">{index + 1}</span>
+                      <div className="stats-song"><img src={song.thumbnail} alt={song.title}/><div><div className="song-title">{song.title}</div><div className="song-artist">{song.artists?.join(", ") || "Unknown Artist"}</div></div></div>
+                      <span className="stats-album">{song.album || "Unknown Album"}</span>
+                      <span>{song.duration || "--:--"}</span>
+                      <span className="stats-plays">{song.playCount}</span>
+                      <span>{formatStatsDuration(song.totalSeconds)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+
           {searchQuery && (
 
             <section className="search-results">
@@ -2369,6 +2961,14 @@ function App() {
                         </>
 
                       )}
+
+                      <button
+                        className="playlist-export-button"
+                        onClick={exportPlaylist}
+                        disabled={!selectedPlaylist}
+                      >
+                        📤 Export CSV
+                      </button>
 
                       <button
                         onClick={deletePlaylist}
