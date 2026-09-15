@@ -1,9 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import "./App.css";
 
-const API_URL =
-  import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
-
 function App() {
   // =========================================
   // LOAD PLAYLISTS
@@ -13,7 +10,7 @@ function App() {
     const loadPlaylists = async () => {
       try {
         const response = await fetch(
-          `${API_URL}/playlists`
+          "http://127.0.0.1:8000/playlists"
         );
 
         if (!response.ok) {
@@ -134,7 +131,7 @@ function App() {
     const loadLikedSongs = async () => {
       try {
         const response = await fetch(
-          `${API_URL}/likes`
+          "http://127.0.0.1:8000/likes"
         );
 
         if (!response.ok) {
@@ -163,7 +160,7 @@ function App() {
     const loadHistory = async () => {
       try {
         const response = await fetch(
-          `${API_URL}/history`
+          "http://127.0.0.1:8000/history"
         );
 
         if (!response.ok) {
@@ -199,7 +196,7 @@ function App() {
 
     try {
       const response = await fetch(
-        `${API_URL}/search?q=${encodeURIComponent(
+        `http://127.0.0.1:8000/search?q=${encodeURIComponent(
           selectedCategory.query
         )}`
       );
@@ -234,7 +231,7 @@ function App() {
 
     try {
       const response = await fetch(
-        `${API_URL}/search?q=${encodeURIComponent(
+        `http://127.0.0.1:8000/search?q=${encodeURIComponent(
           searchQuery
         )}`
       );
@@ -281,7 +278,7 @@ function App() {
 
       if (isLiked) {
         const response = await fetch(
-          `${API_URL}/likes/${song.videoId}`,
+          `http://127.0.0.1:8000/likes/${song.videoId}`,
           {
             method: "DELETE",
           }
@@ -305,7 +302,7 @@ function App() {
       // =====================================
 
       const response = await fetch(
-        `${API_URL}/likes`,
+        "http://127.0.0.1:8000/likes",
         {
           method: "POST",
           headers: {
@@ -521,7 +518,7 @@ function App() {
 
     try {
       const response = await fetch(
-        `${API_URL}/history`,
+        "http://127.0.0.1:8000/history",
         {
           method: "POST",
           headers: {
@@ -592,13 +589,13 @@ function App() {
 
   const updateTop50Playlist = async (topSongs) => {
     try {
-      const listResponse = await fetch(`${API_URL}/playlists`);
+      const listResponse = await fetch("http://127.0.0.1:8000/playlists");
       if (!listResponse.ok) throw new Error("Failed to load playlists");
       const listData = await listResponse.json();
       let playlist = (listData.playlists || []).find((p) => p.name.trim().toLowerCase() === "my top 50 songs");
       let playlistId = playlist?.id;
       if (!playlistId) {
-        const createResponse = await fetch(`${API_URL}/playlists`, {
+        const createResponse = await fetch("http://127.0.0.1:8000/playlists", {
           method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "My Top 50 Songs" })
         });
         const created = await createResponse.json();
@@ -606,18 +603,18 @@ function App() {
         playlistId = created.playlist.id;
       }
       setTop50PlaylistId(playlistId);
-      const detailResponse = await fetch(`${API_URL}/playlists/${playlistId}`);
+      const detailResponse = await fetch(`http://127.0.0.1:8000/playlists/${playlistId}`);
       const detail = await detailResponse.json();
       if (!detailResponse.ok || !detail.success) throw new Error("Failed to load Top 50 playlist");
       for (const song of detail.playlist?.songs || []) {
-        await fetch(`${API_URL}/playlists/${playlistId}/songs/${song.videoId}`, { method: "DELETE" });
+        await fetch(`http://127.0.0.1:8000/playlists/${playlistId}/songs/${song.videoId}`, { method: "DELETE" });
       }
       for (const song of topSongs) {
-        await fetch(`${API_URL}/playlists/${playlistId}/songs`, {
+        await fetch(`http://127.0.0.1:8000/playlists/${playlistId}/songs`, {
           method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(song)
         });
       }
-      const refreshed = await fetch(`${API_URL}/playlists`);
+      const refreshed = await fetch("http://127.0.0.1:8000/playlists");
       if (refreshed.ok) setPlaylists((await refreshed.json()).playlists || []);
     } catch (error) {
       console.error("Failed to update Top 50 playlist:", error);
@@ -627,7 +624,7 @@ function App() {
   const loadStats = async (period = statsPeriod) => {
     setStatsLoading(true);
     try {
-      const response = await fetch(`${API_URL}/history`);
+      const response = await fetch("http://127.0.0.1:8000/history");
       if (!response.ok) throw new Error("Failed to load history");
       const data = await response.json();
       const history = data.songs || [];
@@ -768,7 +765,7 @@ function App() {
 
     try {
       const response = await fetch(
-        `${API_URL}/playlists/${selectedPlaylist.id}`
+        `http://127.0.0.1:8000/playlists/${selectedPlaylist.id}`
       );
 
       const data = await response.json();
@@ -927,7 +924,7 @@ function App() {
       );
 
       const playlistResponse = await fetch(
-        `${API_URL}/playlists`,
+        "http://127.0.0.1:8000/playlists",
         {
           method: "POST",
           headers: {
@@ -958,7 +955,7 @@ function App() {
       for (const song of songsToImport) {
         try {
           const response = await fetch(
-            `${API_URL}/playlists/${playlistId}/songs`,
+            `http://127.0.0.1:8000/playlists/${playlistId}/songs`,
             {
               method: "POST",
               headers: {
@@ -985,7 +982,7 @@ function App() {
       }
 
       const playlistListResponse = await fetch(
-        `${API_URL}/playlists`
+        "http://127.0.0.1:8000/playlists"
       );
 
       if (playlistListResponse.ok) {
@@ -1024,7 +1021,7 @@ function App() {
 
     try {
       const response = await fetch(
-        `${API_URL}/playlists`,
+        "http://127.0.0.1:8000/playlists",
         {
           method: "POST",
           headers: {
@@ -1071,7 +1068,7 @@ function App() {
       setPlaylistLoading(true);
 
       const response = await fetch(
-        `${API_URL}/playlists/${playlistId}`
+        `http://127.0.0.1:8000/playlists/${playlistId}`
       );
 
       const data = await response.json();
@@ -1132,7 +1129,7 @@ function App() {
 
     try {
       const response = await fetch(
-        `${API_URL}/playlists/${selectedPlaylist.id}`,
+        `http://127.0.0.1:8000/playlists/${selectedPlaylist.id}`,
         {
           method: "DELETE",
         }
@@ -1165,7 +1162,7 @@ function App() {
 
     try {
       const response = await fetch(
-        `${API_URL}/playlists/${playlistId}/songs`,
+        `http://127.0.0.1:8000/playlists/${playlistId}/songs`,
         {
           method: "POST",
           headers: {
@@ -1192,7 +1189,7 @@ function App() {
 
       // Refresh playlist counts in the sidebar.
       const playlistResponse = await fetch(
-        `${API_URL}/playlists`
+        "http://127.0.0.1:8000/playlists"
       );
 
       if (playlistResponse.ok) {
@@ -1214,7 +1211,7 @@ function App() {
 
     try {
       const response = await fetch(
-        `${API_URL}/playlists/${selectedPlaylist.id}/songs/${song.videoId}`,
+        `http://127.0.0.1:8000/playlists/${selectedPlaylist.id}/songs/${song.videoId}`,
         {
           method: "DELETE",
         }
@@ -1330,7 +1327,7 @@ function App() {
       setAudioUrl(null);
 
       const response = await fetch(
-        `${API_URL}/stream/${song.videoId}`
+        `http://127.0.0.1:8000/stream/${song.videoId}`
       );
 
       if (!response.ok) {
@@ -2593,7 +2590,7 @@ function App() {
                     onClick={async () => {
                       try {
                         const response = await fetch(
-                          `${API_URL}/history`,
+                          "http://127.0.0.1:8000/history",
                           {
                             method: "DELETE",
                           }
@@ -3880,4 +3877,3 @@ function App() {
 }
 
 export default App;
-
