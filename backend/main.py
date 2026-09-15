@@ -1,5 +1,3 @@
-import os
-
 from fastapi import FastAPI, Query, Body
 from fastapi.middleware.cors import CORSMiddleware
 from ytmusicapi import YTMusic
