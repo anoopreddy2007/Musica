@@ -17,19 +17,9 @@ app = FastAPI(title="Musica API")
 # Create all database tables when the server starts
 init_database()
 
-FRONTEND_URL = os.getenv("FRONTEND_URL", "").strip().rstrip("/")
-
-ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
-
-if FRONTEND_URL:
-    ALLOWED_ORIGINS.append(FRONTEND_URL)
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=["*"],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
