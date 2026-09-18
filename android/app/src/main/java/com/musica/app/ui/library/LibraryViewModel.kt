@@ -18,20 +18,20 @@ class LibraryViewModel(
     // LIKED SONGS
     // ==========================================
 
-    val likedSongs: StateFlow<List<com.musica.app.data.local.LikedSongEntity>> =
+    val likedSongs =
         repository.getLikedSongs()
             .stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5_000),
-                initialValue = emptyList()
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5_000),
+                emptyList()
             )
 
     fun isLiked(videoId: String): StateFlow<Boolean> {
         return repository.isLiked(videoId)
             .stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5_000),
-                initialValue = false
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5_000),
+                false
             )
     }
 
@@ -51,12 +51,12 @@ class LibraryViewModel(
     // HISTORY
     // ==========================================
 
-    val history: StateFlow<List<com.musica.app.data.local.HistoryEntity>> =
+    val history =
         repository.getHistory()
             .stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5_000),
-                initialValue = emptyList()
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5_000),
+                emptyList()
             )
 
     fun addToHistory(song: Song) {
@@ -81,19 +81,22 @@ class LibraryViewModel(
     // PLAYLISTS
     // ==========================================
 
-    val playlists: StateFlow<List<com.musica.app.data.local.PlaylistEntity>> =
+    val playlists =
         repository.getPlaylists()
             .stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5_000),
-                initialValue = emptyList()
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5_000),
+                emptyList()
             )
 
     fun createPlaylist(name: String) {
-        if (name.trim().isEmpty()) return
+
+        val trimmedName = name.trim()
+
+        if (trimmedName.isEmpty()) return
 
         viewModelScope.launch {
-            repository.createPlaylist(name)
+            repository.createPlaylist(trimmedName)
         }
     }
 
@@ -103,11 +106,20 @@ class LibraryViewModel(
         }
     }
 
+    // ==========================================
+    // PLAYLIST SONGS
+    // ==========================================
+
+    fun getPlaylistSongs(playlistId: Long) =
+        repository.getPlaylistSongs(playlistId)
+
     fun addSongToPlaylist(
         playlistId: Long,
         song: Song
     ) {
+
         viewModelScope.launch {
+
             repository.addSongToPlaylist(
                 playlistId = playlistId,
                 song = song
@@ -119,19 +131,31 @@ class LibraryViewModel(
         playlistId: Long,
         videoId: String
     ) {
+
         viewModelScope.launch {
+
             repository.removeSongFromPlaylist(
                 playlistId = playlistId,
                 videoId = videoId
             )
         }
     }
+
+    fun clearPlaylist(playlistId: Long) {
+
+        viewModelScope.launch {
+
+            repository.clearPlaylist(
+                playlistId
+            )
+        }
+    }
 }
 
-/**
- * Factory used to create LibraryViewModel
- * with the required LibraryRepository.
- */
+// =====================================================
+// VIEWMODEL FACTORY
+// =====================================================
+
 class LibraryViewModelFactory(
     private val repository: LibraryRepository
 ) : ViewModelProvider.Factory {
@@ -140,8 +164,16 @@ class LibraryViewModelFactory(
     override fun <T : ViewModel> create(
         modelClass: Class<T>
     ): T {
-        if (modelClass.isAssignableFrom(LibraryViewModel::class.java)) {
-            return LibraryViewModel(repository) as T
+
+        if (
+            modelClass.isAssignableFrom(
+                LibraryViewModel::class.java
+            )
+        ) {
+
+            return LibraryViewModel(
+                repository
+            ) as T
         }
 
         throw IllegalArgumentException(
