@@ -44,7 +44,12 @@ dependencies {
     // ==============================
     // Jetpack Compose
     // ==============================
-
+    implementation(
+    "com.github.TeamNewPipe:NewPipeExtractor:v0.26.5"
+)
+    implementation(libs.retrofit)
+    implementation(libs.retrofitConverterGson)
+    implementation(libs.gson)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.activity.compose)

@@ -24,6 +24,7 @@ import androidx.navigation.navArgument
 import com.musica.app.ui.explore.ExploreScreen
 import com.musica.app.ui.home.HomeScreen
 import com.musica.app.ui.library.LibraryScreen
+import com.musica.app.ui.library.LikedSongsScreen
 import com.musica.app.ui.playlist.PlaylistScreen
 import com.musica.app.ui.search.SearchScreen
 
@@ -173,6 +174,19 @@ fun MusicaNavigation() {
             ) {
 
                 LibraryScreen(
+                    navController = navController
+                )
+            }
+
+            // ==========================================
+            // LIKED SONGS
+            // ==========================================
+
+            composable(
+                Screen.LikedSongs.route
+            ) {
+
+                LikedSongsScreen(
                     navController = navController
                 )
             }
