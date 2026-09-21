@@ -12,44 +12,106 @@ import com.musica.app.MainActivity
 class MusicService : MediaSessionService() {
 
     private lateinit var player: ExoPlayer
+
     private lateinit var mediaSession: MediaSession
 
+
     override fun onCreate() {
+
         super.onCreate()
 
-        player = ExoPlayer.Builder(this)
-            .setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(C.USAGE_MEDIA)
-                    .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-                    .build(),
-                true
+
+        // ==========================================
+        // EXOPLAYER
+        // ==========================================
+
+        player =
+            ExoPlayer.Builder(this)
+
+                .setAudioAttributes(
+
+                    AudioAttributes.Builder()
+
+                        .setUsage(
+                            C.USAGE_MEDIA
+                        )
+
+                        .setContentType(
+                            C.AUDIO_CONTENT_TYPE_MUSIC
+                        )
+
+                        .build(),
+
+                    true
+                )
+
+                .setHandleAudioBecomingNoisy(
+                    true
+                )
+
+                .build()
+
+
+        // ==========================================
+        // OPEN APP FROM NOTIFICATION
+        // ==========================================
+
+        val sessionActivity =
+            PendingIntent.getActivity(
+
+                this,
+
+                0,
+
+                Intent(
+                    this,
+                    MainActivity::class.java
+                ),
+
+                PendingIntent.FLAG_UPDATE_CURRENT or
+                    PendingIntent.FLAG_IMMUTABLE
             )
-            .setHandleAudioBecomingNoisy(true)
-            .build()
 
-        val sessionActivity = PendingIntent.getActivity(
-            this,
-            0,
-            Intent(this, MainActivity::class.java),
-            PendingIntent.FLAG_UPDATE_CURRENT or
-                PendingIntent.FLAG_IMMUTABLE
-        )
 
-        mediaSession = MediaSession.Builder(this, player)
-            .setSessionActivity(sessionActivity)
-            .build()
+        // ==========================================
+        // MEDIA SESSION
+        // ==========================================
+
+        mediaSession =
+            MediaSession.Builder(
+                this,
+                player
+            )
+                .setSessionActivity(
+                    sessionActivity
+                )
+                .build()
     }
 
+
+    // ==============================================
+    // MEDIA CONTROLLER CONNECTION
+    // ==============================================
+
     override fun onGetSession(
-        controllerInfo: MediaSession.ControllerInfo
+        controllerInfo:
+            MediaSession.ControllerInfo
     ): MediaSession {
+
         return mediaSession
     }
 
+
+    // ==============================================
+    // CLEANUP
+    // ==============================================
+
     override fun onDestroy() {
+
         mediaSession.release()
+
         player.release()
+
         super.onDestroy()
     }
 }

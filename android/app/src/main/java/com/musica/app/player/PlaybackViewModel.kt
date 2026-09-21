@@ -1,12 +1,21 @@
 package com.musica.app.ui.player
 
 import android.app.Application
+import android.content.ComponentName
 import android.net.Uri
+
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionToken
+
+import com.google.common.util.concurrent.ListenableFuture
 import com.musica.app.data.extractor.AudioStreamResolver
 import com.musica.app.data.model.Song
-import com.musica.app.player.PlaybackController
+import com.musica.app.player.MusicService
+
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,41 +25,159 @@ class PlaybackViewModel(
     application: Application
 ) : AndroidViewModel(application) {
 
-    private val playbackController =
-        PlaybackController(application)
 
+    // ==========================================
+    // EXTRACTOR
+    // ==========================================
 
     private val streamResolver =
         AudioStreamResolver(application)
 
 
+    // ==========================================
+    // MEDIA CONTROLLER
+    // ==========================================
+
+    private var mediaController:
+        MediaController? = null
+
+    private var controllerFuture:
+        ListenableFuture<MediaController>? = null
+
+
+    // ==========================================
+    // CURRENT SONG
+    // ==========================================
+
     private val _currentSong =
         MutableStateFlow<Song?>(null)
 
-    val currentSong: StateFlow<Song?> =
+    val currentSong:
+        StateFlow<Song?> =
         _currentSong.asStateFlow()
 
 
-    private val _isLoading =
-        MutableStateFlow(false)
-
-    val isLoading: StateFlow<Boolean> =
-        _isLoading.asStateFlow()
-
+    // ==========================================
+    // PLAYING
+    // ==========================================
 
     private val _isPlaying =
         MutableStateFlow(false)
 
-    val isPlaying: StateFlow<Boolean> =
+    val isPlaying:
+        StateFlow<Boolean> =
         _isPlaying.asStateFlow()
 
+
+    // ==========================================
+    // LOADING
+    // ==========================================
+
+    private val _isLoading =
+        MutableStateFlow(false)
+
+    val isLoading:
+        StateFlow<Boolean> =
+        _isLoading.asStateFlow()
+
+
+    // ==========================================
+    // ERROR
+    // ==========================================
 
     private val _error =
         MutableStateFlow<String?>(null)
 
-    val error: StateFlow<String?> =
+    val error:
+        StateFlow<String?> =
         _error.asStateFlow()
 
+
+    init {
+
+        connectToMusicService()
+    }
+
+
+    // ==========================================
+    // CONNECT TO MUSIC SERVICE
+    // ==========================================
+
+    private fun connectToMusicService() {
+
+        val context =
+            getApplication<Application>()
+
+        val sessionToken =
+            SessionToken(
+                context,
+                ComponentName(
+                    context,
+                    MusicService::class.java
+                )
+            )
+
+
+        controllerFuture =
+            MediaController.Builder(
+                context,
+                sessionToken
+            )
+                .buildAsync()
+
+
+        controllerFuture?.addListener(
+
+            {
+
+                try {
+
+                    val controller =
+                        controllerFuture?.get()
+                            ?: return@addListener
+
+
+                    mediaController =
+                        controller
+
+
+                    controller.addListener(
+
+                        object :
+                            androidx.media3.common.Player.Listener {
+
+                            override fun
+                                onIsPlayingChanged(
+                                    isPlaying:
+                                        Boolean
+                                ) {
+
+                                _isPlaying.value =
+                                    isPlaying
+                            }
+                        }
+                    )
+
+                } catch (
+                    exception: Exception
+                ) {
+
+                    _error.value =
+                        exception.message
+                            ?: "Unable to connect to music player"
+                }
+
+            },
+
+            androidx.core.content.ContextCompat
+                .getMainExecutor(context)
+        )
+    }
+
+
+    // ==========================================
+    // PLAY SONG
+    // ==========================================
 
     fun playSong(
         song: Song
@@ -65,77 +192,223 @@ class PlaybackViewModel(
                 null
 
 
-            val result =
-                streamResolver.resolve(
-                    song
-                )
+            try {
 
+                // ----------------------------------
+                // MAKE SURE CONTROLLER IS READY
+                // ----------------------------------
 
-            result.fold(
+                val controller =
+                    mediaController
 
-                onSuccess = { resolved ->
-
-                    _currentSong.value =
-                        song
-
-
-                    playbackController.play(
-                        Uri.parse(
-                            resolved.url
+                        ?: throw Exception(
+                            "Music player is still starting"
                         )
+
+
+                // ----------------------------------
+                // RESOLVE AUDIO STREAM
+                // ----------------------------------
+
+                val result =
+                    streamResolver.resolve(
+                        song
                     )
 
 
-                    _isPlaying.value =
-                        true
-                },
+                result.fold(
 
-                onFailure = { exception ->
+                    onSuccess = { resolved ->
 
-                    _error.value =
-                        exception.message
-                            ?: "Unable to extract audio"
+                        // --------------------------
+                        // MEDIA METADATA
+                        // --------------------------
 
-                    _isPlaying.value =
-                        false
-                }
-            )
+                        val metadata =
+                            MediaMetadata.Builder()
+
+                                .setTitle(
+                                    song.title
+                                )
+
+                                .setArtist(
+                                    song.artists
+                                        .joinToString(", ")
+                                )
+
+                                .setAlbumTitle(
+                                    song.album
+                                )
+
+                                .setArtworkUri(
+                                    song.thumbnail
+                                        ?.let {
+                                            Uri.parse(it)
+                                        }
+                                )
+
+                                .build()
 
 
-            _isLoading.value =
-                false
+                        // --------------------------
+                        // MEDIA ITEM
+                        // --------------------------
+
+                        val mediaItem =
+                            MediaItem.Builder()
+
+                                .setUri(
+                                    resolved.url
+                                )
+
+                                .setMediaMetadata(
+                                    metadata
+                                )
+
+                                .build()
+
+
+                        // --------------------------
+                        // SEND TO MUSIC SERVICE
+                        // --------------------------
+
+                        controller.setMediaItem(
+                            mediaItem
+                        )
+
+                        controller.prepare()
+
+                        controller.play()
+
+
+                        // --------------------------
+                        // UPDATE UI STATE
+                        // --------------------------
+
+                        _currentSong.value =
+                            song
+
+                        _isPlaying.value =
+                            true
+                    },
+
+
+                    onFailure = { exception ->
+
+                        _error.value =
+                            exception.message
+                                ?: "Unable to extract audio"
+
+                        _isPlaying.value =
+                            false
+                    }
+                )
+
+            } catch (
+                exception: Exception
+            ) {
+
+                _error.value =
+                    exception.message
+                        ?: "Playback failed"
+
+                _isPlaying.value =
+                    false
+
+            } finally {
+
+                _isLoading.value =
+                    false
+            }
         }
     }
 
 
+    // ==========================================
+    // PLAY / PAUSE
+    // ==========================================
+
     fun togglePlayPause() {
 
-        playbackController
-            .togglePlayPause()
+        val controller =
+            mediaController
+                ?: return
 
-        _isPlaying.value =
-            playbackController
-                .isPlaying()
+
+        if (controller.isPlaying) {
+
+            controller.pause()
+
+        } else {
+
+            controller.play()
+        }
     }
 
+
+    // ==========================================
+    // PAUSE
+    // ==========================================
 
     fun pause() {
 
-        playbackController.pause()
-
-        _isPlaying.value =
-            false
+        mediaController?.pause()
     }
 
+
+    // ==========================================
+    // RESUME
+    // ==========================================
 
     fun resume() {
 
-        playbackController.resume()
-
-        _isPlaying.value =
-            true
+        mediaController?.play()
     }
 
+
+    // ==========================================
+    // SEEK
+    // ==========================================
+
+    fun seekTo(
+        positionMs: Long
+    ) {
+
+        mediaController
+            ?.seekTo(
+                positionMs
+            )
+    }
+
+
+    // ==========================================
+    // POSITION
+    // ==========================================
+
+    fun currentPosition(): Long {
+
+        return mediaController
+            ?.currentPosition
+            ?: 0L
+    }
+
+
+    // ==========================================
+    // DURATION
+    // ==========================================
+
+    fun duration(): Long {
+
+        return mediaController
+            ?.duration
+            ?.coerceAtLeast(0L)
+            ?: 0L
+    }
+
+
+    // ==========================================
+    // CLEAR ERROR
+    // ==========================================
 
     fun clearError() {
 
@@ -144,9 +417,17 @@ class PlaybackViewModel(
     }
 
 
+    // ==========================================
+    // CLEANUP
+    // ==========================================
+
     override fun onCleared() {
 
-        playbackController.release()
+        mediaController?.release()
+
+        controllerFuture = null
+
+        mediaController = null
 
         super.onCleared()
     }
