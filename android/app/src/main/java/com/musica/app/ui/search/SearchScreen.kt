@@ -1,5 +1,9 @@
 package com.musica.app.ui.search
 
+import android.content.Intent
+import androidx.navigation.NavController
+import com.musica.app.navigation.Screen
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -19,6 +23,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -26,16 +31,29 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Divider
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,16 +76,16 @@ import com.musica.app.ui.library.LibraryViewModel
 import com.musica.app.ui.library.LibraryViewModelFactory
 import com.musica.app.ui.player.PlaybackViewModel
 
-
 // =====================================================
 // SEARCH SCREEN
 // =====================================================
 
 @Composable
-fun SearchScreen() {
+fun SearchScreen(
+    navController: NavController
+) {
 
     val context = LocalContext.current
-
 
     // =================================================
     // SEARCH VIEWMODEL
@@ -85,7 +103,6 @@ fun SearchScreen() {
                     searchRepository
                 )
         )
-
 
     // =================================================
     // LIBRARY VIEWMODEL
@@ -110,14 +127,12 @@ fun SearchScreen() {
                 )
         )
 
-
     // =================================================
     // PLAYBACK VIEWMODEL
     // =================================================
 
     val playbackViewModel: PlaybackViewModel =
         viewModel()
-
 
     // =================================================
     // STATE
@@ -147,7 +162,6 @@ fun SearchScreen() {
     val playbackError by
         playbackViewModel.error.collectAsState()
 
-
     // =================================================
     // SCREEN
     // =================================================
@@ -175,7 +189,6 @@ fun SearchScreen() {
             verticalArrangement =
                 Arrangement.spacedBy(18.dp)
         ) {
-
 
             // ==========================================
             // HEADER
@@ -210,7 +223,6 @@ fun SearchScreen() {
                     }
                 )
             }
-
 
             // ==========================================
             // EMPTY QUERY
@@ -258,9 +270,7 @@ fun SearchScreen() {
                     )
                 }
 
-
             } else {
-
 
                 // ======================================
                 // SEARCH LOADING
@@ -293,7 +303,6 @@ fun SearchScreen() {
                     }
                 }
 
-
                 // ======================================
                 // SEARCH ERROR
                 // ======================================
@@ -305,17 +314,10 @@ fun SearchScreen() {
                         Column {
 
                             Text(
-                                text =
-                                    "Search failed",
-
-                                color =
-                                    Color.White,
-
-                                fontSize =
-                                    18.sp,
-
-                                fontWeight =
-                                    FontWeight.Bold
+                                text = "Search failed",
+                                color = Color.White,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold
                             )
 
                             Spacer(
@@ -328,16 +330,12 @@ fun SearchScreen() {
                                     error
                                         ?: "Unknown error",
 
-                                color =
-                                    Color.Gray,
-
-                                fontSize =
-                                    14.sp
+                                color = Color.Gray,
+                                fontSize = 14.sp
                             )
                         }
                     }
                 }
-
 
                 // ======================================
                 // PLAYBACK ERROR
@@ -361,17 +359,10 @@ fun SearchScreen() {
                         ) {
 
                             Text(
-                                text =
-                                    "Playback failed",
-
-                                color =
-                                    Color.White,
-
-                                fontSize =
-                                    16.sp,
-
-                                fontWeight =
-                                    FontWeight.Bold
+                                text = "Playback failed",
+                                color = Color.White,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
                             )
 
                             Spacer(
@@ -384,16 +375,12 @@ fun SearchScreen() {
                                     playbackError
                                         ?: "Unable to play this song",
 
-                                color =
-                                    Color.Gray,
-
-                                fontSize =
-                                    13.sp
+                                color = Color.Gray,
+                                fontSize = 13.sp
                             )
                         }
                     }
                 }
-
 
                 // ======================================
                 // RESULTS HEADER
@@ -426,16 +413,12 @@ fun SearchScreen() {
                                 text =
                                     "${songs.size} results",
 
-                                color =
-                                    Color.Gray,
-
-                                fontSize =
-                                    13.sp
+                                color = Color.Gray,
+                                fontSize = 13.sp
                             )
                         }
                     }
                 }
-
 
                 // ======================================
                 // SONG RESULTS
@@ -469,10 +452,33 @@ fun SearchScreen() {
                             isPlaying,
 
                         isPlaybackLoading =
-                            isPlaybackLoading
+                            isPlaybackLoading,
+
+                        onShare = {
+
+                            val shareIntent =
+                                Intent(
+                                    Intent.ACTION_SEND
+                                ).apply {
+
+                                    type =
+                                        "text/plain"
+
+                                    putExtra(
+                                        Intent.EXTRA_TEXT,
+                                        "https://music.youtube.com/watch?v=${song.videoId}"
+                                    )
+                                }
+
+                            context.startActivity(
+                                Intent.createChooser(
+                                    shareIntent,
+                                    "Share song"
+                                )
+                            )
+                        }
                     )
                 }
-
 
                 // ======================================
                 // NO RESULTS
@@ -499,21 +505,15 @@ fun SearchScreen() {
                         ) {
 
                             Text(
-                                text =
-                                    "No songs found",
-
-                                color =
-                                    Color.Gray,
-
-                                fontSize =
-                                    15.sp
+                                text = "No songs found",
+                                color = Color.Gray,
+                                fontSize = 15.sp
                             )
                         }
                     }
                 }
             }
         }
-
 
         // =================================================
         // MINI PLAYER
@@ -535,6 +535,13 @@ fun SearchScreen() {
                     .togglePlayPause()
             },
 
+            onOpenPlayer = {
+
+                navController.navigate(
+                    Screen.NowPlaying.route
+                )
+            },
+
             modifier =
                 Modifier
                     .align(
@@ -548,7 +555,6 @@ fun SearchScreen() {
         )
     }
 }
-
 
 // =====================================================
 // SEARCH BAR
@@ -668,7 +674,6 @@ private fun SearchBar(
     )
 }
 
-
 // =====================================================
 // RECENT SEARCH
 // =====================================================
@@ -734,7 +739,6 @@ private fun RecentSearch(
     }
 }
 
-
 // =====================================================
 // REAL SEARCH RESULT
 // =====================================================
@@ -757,7 +761,9 @@ private fun RealSearchResultRow(
         Boolean,
 
     isPlaybackLoading:
-        Boolean
+        Boolean,
+
+    onShare: () -> Unit
 ) {
 
     val isLiked by
@@ -765,6 +771,9 @@ private fun RealSearchResultRow(
             .isLiked(song.videoId)
             .collectAsState()
 
+    var showMenu by remember {
+        mutableStateOf(false)
+    }
 
     Row(
 
@@ -794,7 +803,6 @@ private fun RealSearchResultRow(
             Alignment.CenterVertically
     ) {
 
-
         // ==============================================
         // ARTWORK
         // ==============================================
@@ -818,12 +826,10 @@ private fun RealSearchResultRow(
                 ContentScale.Crop
         )
 
-
         Spacer(
             modifier =
                 Modifier.width(13.dp)
         )
-
 
         // ==============================================
         // SONG INFO
@@ -876,9 +882,7 @@ private fun RealSearchResultRow(
                                 .isNullOrBlank()
                         ) {
 
-                            append(
-                                " • "
-                            )
+                            append(" • ")
 
                             append(
                                 song.album
@@ -912,7 +916,8 @@ private fun RealSearchResultRow(
                 Text(
 
                     text =
-                        song.duration!!,
+                        song.duration
+                            ?: "",
 
                     color =
                         Color.DarkGray,
@@ -923,9 +928,8 @@ private fun RealSearchResultRow(
             }
         }
 
-
         // ==============================================
-        // PLAYING / LOADING INDICATOR
+        // PLAYING / LOADING
         // ==============================================
 
         if (isCurrentSong) {
@@ -979,9 +983,8 @@ private fun RealSearchResultRow(
             }
         }
 
-
         // ==============================================
-        // LIKE BUTTON
+        // LIKE
         // ==============================================
 
         IconButton(
@@ -1009,52 +1012,233 @@ private fun RealSearchResultRow(
             Icon(
 
                 imageVector =
-                    if (isLiked) {
+                    if (isLiked)
                         Icons.Default.Favorite
-                    } else {
-                        Icons.Default.FavoriteBorder
-                    },
+                    else
+                        Icons.Default.FavoriteBorder,
 
                 contentDescription =
-                    if (isLiked) {
+                    if (isLiked)
                         "Unlike"
-                    } else {
-                        "Like"
-                    },
+                    else
+                        "Like",
 
                 tint =
                     Color.White
             )
         }
 
-
         // ==============================================
-        // MORE
+        // MORE MENU
         // ==============================================
 
-        IconButton(
+        Box {
 
-            onClick = {
-                // Playlist / queue menu later
+            IconButton(
+
+                onClick = {
+                    showMenu = true
+                }
+
+            ) {
+
+                Icon(
+
+                    imageVector =
+                        Icons.Default.MoreVert,
+
+                    contentDescription =
+                        "More",
+
+                    tint =
+                        Color.LightGray
+                )
             }
 
-        ) {
+            DropdownMenu(
 
-            Icon(
+                expanded =
+                    showMenu,
 
-                imageVector =
-                    Icons.Default.MoreVert,
+                onDismissRequest = {
+                    showMenu = false
+                },
 
-                contentDescription =
-                    "More",
+                containerColor =
+                    Color(0xFF202020)
+            ) {
 
-                tint =
-                    Color.LightGray
-            )
+                // ======================================
+                // PLAY NEXT
+                // ======================================
+
+                DropdownMenuItem(
+
+                    text = {
+
+                        Text(
+                            text = "Play next",
+                            color = Color.White
+                        )
+                    },
+
+                    onClick = {
+
+                        playbackViewModel
+                            .playNext(song)
+
+                        showMenu = false
+                    },
+
+                    leadingIcon = {
+
+                        Icon(
+                            imageVector =
+                                Icons.Default.SkipNext,
+
+                            contentDescription =
+                                null,
+
+                            tint =
+                                Color.White
+                        )
+                    }
+                )
+
+                // ======================================
+                // ADD TO QUEUE
+                // ======================================
+
+                DropdownMenuItem(
+
+                    text = {
+
+                        Text(
+                            text = "Add to queue",
+                            color = Color.White
+                        )
+                    },
+
+                    onClick = {
+
+                        playbackViewModel
+                            .addToQueue(song)
+
+                        showMenu = false
+                    },
+
+                    leadingIcon = {
+
+                        Icon(
+                            imageVector =
+                                Icons.Default.QueueMusic,
+
+                            contentDescription =
+                                null,
+
+                            tint =
+                                Color.White
+                        )
+                    }
+                )
+
+                // ======================================
+                // LIKE / UNLIKE
+                // ======================================
+
+                DropdownMenuItem(
+
+                    text = {
+
+                        Text(
+                            text =
+                                if (isLiked)
+                                    "Unlike"
+                                else
+                                    "Like",
+
+                            color =
+                                Color.White
+                        )
+                    },
+
+                    onClick = {
+
+                        if (isLiked) {
+
+                            libraryViewModel
+                                .unlikeSong(
+                                    song.videoId
+                                )
+
+                        } else {
+
+                            libraryViewModel
+                                .likeSong(
+                                    song
+                                )
+                        }
+
+                        showMenu = false
+                    },
+
+                    leadingIcon = {
+
+                        Icon(
+                            imageVector =
+                                if (isLiked)
+                                    Icons.Default.Favorite
+                                else
+                                    Icons.Default.FavoriteBorder,
+
+                            contentDescription =
+                                null,
+
+                            tint =
+                                Color.White
+                        )
+                    }
+                )
+
+                // ======================================
+                // SHARE
+                // ======================================
+
+                DropdownMenuItem(
+
+                    text = {
+
+                        Text(
+                            text = "Share",
+                            color = Color.White
+                        )
+                    },
+
+                    onClick = {
+
+                        onShare()
+
+                        showMenu = false
+                    },
+
+                    leadingIcon = {
+
+                        Icon(
+                            imageVector =
+                                Icons.Default.Share,
+
+                            contentDescription =
+                                null,
+
+                            tint =
+                                Color.White
+                        )
+                    }
+                )
+            }
         }
     }
 }
-
 
 // =====================================================
 // MINI PLAYER
@@ -1070,6 +1254,8 @@ private fun SearchMiniPlayer(
     isLoading: Boolean,
 
     onPlayPause: () -> Unit,
+
+    onOpenPlayer: () -> Unit,
 
     modifier: Modifier = Modifier
 ) {
@@ -1115,7 +1301,6 @@ private fun SearchMiniPlayer(
         return
     }
 
-
     Row(
 
         modifier =
@@ -1136,88 +1321,93 @@ private fun SearchMiniPlayer(
             Alignment.CenterVertically
     ) {
 
-
         // ==========================================
-        // ARTWORK
+        // ARTWORK + INFO
         // ==========================================
 
-        AsyncImage(
-
-            model =
-                song.thumbnail,
-
-            contentDescription =
-                song.title,
+        Row(
 
             modifier =
                 Modifier
-                    .size(46.dp)
-                    .clip(
-                        RoundedCornerShape(6.dp)
-                    ),
+                    .weight(1f)
+                    .clickable {
+                        onOpenPlayer()
+                    },
 
-            contentScale =
-                ContentScale.Crop
-        )
-
-
-        Spacer(
-            modifier =
-                Modifier.width(10.dp)
-        )
-
-
-        // ==========================================
-        // SONG INFO
-        // ==========================================
-
-        Column(
-
-            modifier =
-                Modifier.weight(1f)
+            verticalAlignment =
+                Alignment.CenterVertically
         ) {
 
-            Text(
+            AsyncImage(
 
-                text =
+                model =
+                    song.thumbnail,
+
+                contentDescription =
                     song.title,
 
-                color =
-                    Color.White,
+                modifier =
+                    Modifier
+                        .size(46.dp)
+                        .clip(
+                            RoundedCornerShape(6.dp)
+                        ),
 
-                fontSize =
-                    13.sp,
-
-                fontWeight =
-                    FontWeight.SemiBold,
-
-                maxLines =
-                    1,
-
-                overflow =
-                    TextOverflow.Ellipsis
+                contentScale =
+                    ContentScale.Crop
             )
 
-            Text(
-
-                text =
-                    song.artists
-                        .joinToString(", "),
-
-                color =
-                    Color.Gray,
-
-                fontSize =
-                    11.sp,
-
-                maxLines =
-                    1,
-
-                overflow =
-                    TextOverflow.Ellipsis
+            Spacer(
+                modifier =
+                    Modifier.width(10.dp)
             )
+
+            Column(
+                modifier =
+                    Modifier.weight(1f)
+            ) {
+
+                Text(
+
+                    text =
+                        song.title,
+
+                    color =
+                        Color.White,
+
+                    fontSize =
+                        13.sp,
+
+                    fontWeight =
+                        FontWeight.SemiBold,
+
+                    maxLines =
+                        1,
+
+                    overflow =
+                        TextOverflow.Ellipsis
+                )
+
+                Text(
+
+                    text =
+                        song.artists
+                            .joinToString(", "),
+
+                    color =
+                        Color.Gray,
+
+                    fontSize =
+                        11.sp,
+
+                    maxLines =
+                        1,
+
+                    overflow =
+                        TextOverflow.Ellipsis
+                )
+            }
         }
-
 
         // ==========================================
         // PLAY / PAUSE
@@ -1228,8 +1418,7 @@ private fun SearchMiniPlayer(
             CircularProgressIndicator(
 
                 modifier =
-                    Modifier
-                        .size(24.dp),
+                    Modifier.size(24.dp),
 
                 color =
                     Color.White,

@@ -26,50 +26,69 @@ import com.musica.app.ui.home.HomeScreen
 import com.musica.app.ui.library.LibraryScreen
 import com.musica.app.ui.library.LikedSongsScreen
 import com.musica.app.ui.playlist.PlaylistScreen
+import com.musica.app.ui.player.NowPlayingScreen
 import com.musica.app.ui.search.SearchScreen
+
 
 @Composable
 fun MusicaNavigation() {
 
-    val navController = rememberNavController()
+    val navController =
+        rememberNavController()
 
-    val bottomScreens = listOf(
-        Screen.Home,
-        Screen.Explore,
-        Screen.Search,
-        Screen.Library
-    )
+
+    // ==========================================
+    // BOTTOM NAVIGATION
+    // ==========================================
+
+    val bottomScreens =
+        listOf(
+            Screen.Home,
+            Screen.Explore,
+            Screen.Search,
+            Screen.Library
+        )
+
+
+    // ==========================================
+    // SCAFFOLD
+    // ==========================================
 
     Scaffold(
+
         bottomBar = {
 
             NavigationBar {
 
                 val navBackStackEntry by
-                    navController.currentBackStackEntryAsState()
+                    navController
+                        .currentBackStackEntryAsState()
 
                 val currentDestination =
                     navBackStackEntry?.destination
 
+
                 bottomScreens.forEach { screen ->
 
-                    val icon = when (screen) {
+                    val icon =
+                        when (screen) {
 
-                        Screen.Home ->
-                            Icons.Default.Home
+                            Screen.Home ->
+                                Icons.Default.Home
 
-                        Screen.Explore ->
-                            Icons.Default.Search
+                            Screen.Explore ->
+                                Icons.Default.Search
 
-                        Screen.Search ->
-                            Icons.Default.Search
+                            Screen.Search ->
+                                Icons.Default.Search
 
-                        Screen.Library ->
-                            Icons.Default.LibraryMusic
+                            Screen.Library ->
+                                Icons.Default.LibraryMusic
 
-                        else ->
-                            Icons.Default.Home
-                    }
+                            else ->
+                                Icons.Default.Home
+                        }
+
 
                     NavigationBarItem(
 
@@ -77,8 +96,10 @@ fun MusicaNavigation() {
                             currentDestination
                                 ?.hierarchy
                                 ?.any {
-                                    it.route == screen.route
+                                    it.route ==
+                                        screen.route
                                 } == true,
+
 
                         onClick = {
 
@@ -90,27 +111,35 @@ fun MusicaNavigation() {
                                     navController.graph
                                         .startDestinationId
                                 ) {
+
                                     saveState = true
                                 }
 
                                 launchSingleTop = true
+
                                 restoreState = true
                             }
                         },
 
+
                         icon = {
 
                             Icon(
-                                imageVector = icon,
+
+                                imageVector =
+                                    icon,
+
                                 contentDescription =
                                     screen.title
                             )
                         },
 
+
                         label = {
 
                             Text(
-                                text = screen.title
+                                text =
+                                    screen.title
                             )
                         }
                     )
@@ -120,21 +149,30 @@ fun MusicaNavigation() {
 
     ) { innerPadding ->
 
+
+        // ==========================================
+        // NAVIGATION HOST
+        // ==========================================
+
         NavHost(
 
-            navController = navController,
+            navController =
+                navController,
 
             startDestination =
                 Screen.Home.route,
 
             modifier =
-                Modifier.padding(innerPadding)
+                Modifier.padding(
+                    innerPadding
+                )
 
         ) {
 
-            // ==========================================
+
+            // ======================================
             // HOME
-            // ==========================================
+            // ======================================
 
             composable(
                 Screen.Home.route
@@ -143,9 +181,10 @@ fun MusicaNavigation() {
                 HomeScreen()
             }
 
-            // ==========================================
+
+            // ======================================
             // EXPLORE
-            // ==========================================
+            // ======================================
 
             composable(
                 Screen.Explore.route
@@ -154,67 +193,111 @@ fun MusicaNavigation() {
                 ExploreScreen()
             }
 
-            // ==========================================
+
+            // ======================================
             // SEARCH
-            // ==========================================
+            // ======================================
 
             composable(
                 Screen.Search.route
             ) {
 
-                SearchScreen()
+                SearchScreen(
+                    navController =
+                        navController
+                )
             }
 
-            // ==========================================
+
+            // ======================================
             // LIBRARY
-            // ==========================================
+            // ======================================
 
             composable(
                 Screen.Library.route
             ) {
 
                 LibraryScreen(
-                    navController = navController
+                    navController =
+                        navController
                 )
             }
 
-            // ==========================================
+
+            // ======================================
             // LIKED SONGS
-            // ==========================================
+            // ======================================
 
             composable(
                 Screen.LikedSongs.route
             ) {
 
                 LikedSongsScreen(
-                    navController = navController
+                    navController =
+                        navController
                 )
             }
 
-            // ==========================================
+
+            // ======================================
             // PLAYLIST DETAIL
-            // ==========================================
+            // ======================================
 
             composable(
-                route = Screen.Playlist.route,
 
-                arguments = listOf(
-                    navArgument("playlistId") {
-                        type = NavType.LongType
-                    }
-                )
+                route =
+                    Screen.Playlist.route,
+
+                arguments =
+                    listOf(
+
+                        navArgument(
+                            "playlistId"
+                        ) {
+
+                            type =
+                                NavType.LongType
+                        }
+                    )
 
             ) { backStackEntry ->
+
 
                 val playlistId =
                     backStackEntry
                         .arguments
-                        ?.getLong("playlistId")
+                        ?.getLong(
+                            "playlistId"
+                        )
                         ?: 0L
 
+
                 PlaylistScreen(
-                    playlistId = playlistId,
-                    navController = navController
+
+                    playlistId =
+                        playlistId,
+
+                    navController =
+                        navController
+                )
+            }
+
+
+            // ======================================
+            // NOW PLAYING
+            // ======================================
+
+            composable(
+                Screen.NowPlaying.route
+            ) {
+
+                NowPlayingScreen(
+
+                    onBack = {
+
+                        navController
+                            .popBackStack()
+                    }
                 )
             }
         }
