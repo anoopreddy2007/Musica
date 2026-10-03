@@ -286,8 +286,8 @@ fun MusicaNavigation() {
             ) {
 
                 StatsScreen(
-                    viewModel =
-                        statsViewModel
+                    viewModel = statsViewModel,
+                    navController = navController    
                 )
             }
 

@@ -29,6 +29,7 @@ class PlaybackViewModel(
     application: Application
 ) : AndroidViewModel(application) {
 
+
     // ==========================================
     // EXTRACTOR
     // ==========================================
@@ -45,6 +46,7 @@ class PlaybackViewModel(
         DatabaseProvider
             .getDatabase(application)
             .let { database ->
+
                 LibraryRepository(
                     database.likedSongDao(),
                     database.historyDao(),
@@ -204,7 +206,6 @@ class PlaybackViewModel(
                         controllerFuture?.get()
                             ?: return@addListener
 
-
                     mediaController =
                         controller
 
@@ -355,7 +356,6 @@ class PlaybackViewModel(
             controller.currentMediaItem
                 ?: return
 
-
         val videoId =
             mediaItem.mediaId
                 .takeIf {
@@ -363,22 +363,18 @@ class PlaybackViewModel(
                 }
                 ?: return
 
-
         val metadata =
             mediaItem.mediaMetadata
-
 
         val title =
             metadata.title
                 ?.toString()
                 ?: "Unknown title"
 
-
         val artistText =
             metadata.artist
                 ?.toString()
                 ?: ""
-
 
         val artists =
             if (artistText.isBlank()) {
@@ -397,7 +393,6 @@ class PlaybackViewModel(
                     }
             }
 
-
         val album =
             metadata.albumTitle
                 ?.toString()
@@ -405,11 +400,9 @@ class PlaybackViewModel(
                     it.isNotBlank()
                 }
 
-
         val thumbnail =
             metadata.artworkUri
                 ?.toString()
-
 
         _currentSong.value =
             Song(
@@ -438,22 +431,18 @@ class PlaybackViewModel(
                 }
                 ?: return null
 
-
         val metadata =
             mediaItem.mediaMetadata
-
 
         val title =
             metadata.title
                 ?.toString()
                 ?: "Unknown title"
 
-
         val artistText =
             metadata.artist
                 ?.toString()
                 ?: ""
-
 
         val artists =
             if (artistText.isBlank()) {
@@ -471,7 +460,6 @@ class PlaybackViewModel(
                         it.isNotBlank()
                     }
             }
-
 
         return Song(
             videoId = videoId,
@@ -502,7 +490,6 @@ class PlaybackViewModel(
         val songs =
             mutableListOf<Song>()
 
-
         for (
             index in 0 until controller.mediaItemCount
         ) {
@@ -521,10 +508,8 @@ class PlaybackViewModel(
             }
         }
 
-
         _queue.value =
             songs
-
 
         _currentQueueIndex.value =
             controller.currentMediaItemIndex
@@ -565,7 +550,6 @@ class PlaybackViewModel(
 
                 .build()
 
-
         return MediaItem.Builder()
 
             // IMPORTANT:
@@ -604,7 +588,6 @@ class PlaybackViewModel(
 
             _error.value =
                 null
-
 
             try {
 
@@ -711,6 +694,174 @@ class PlaybackViewModel(
 
 
     // ==========================================
+    // PLAY MULTIPLE SONGS
+    // ==========================================
+
+    fun playSongs(
+        songs: List<Song>,
+        shuffle: Boolean = false
+    ) {
+
+        viewModelScope.launch {
+
+            if (songs.isEmpty()) {
+                return@launch
+            }
+
+            _isLoading.value =
+                true
+
+            _error.value =
+                null
+
+            try {
+
+                val controller =
+                    mediaController
+                        ?: throw Exception(
+                            "Music player is still starting"
+                        )
+
+
+                // ----------------------------------
+                // DETERMINE ORDER
+                // ----------------------------------
+
+                val orderedSongs =
+                    if (shuffle) {
+                        songs.shuffled()
+                    } else {
+                        songs
+                    }
+
+
+                // ----------------------------------
+                // RESOLVE ALL SONGS SEQUENTIALLY
+                // ----------------------------------
+
+                val mediaItems =
+                    mutableListOf<MediaItem>()
+
+                val successfullyResolvedSongs =
+                    mutableListOf<Song>()
+
+
+                for (song in orderedSongs) {
+
+                    try {
+
+                        val result =
+                            streamResolver.resolve(
+                                song
+                            )
+
+                        result.fold(
+
+                            onSuccess = { resolved ->
+
+                                mediaItems.add(
+                                    createMediaItem(
+                                        song,
+                                        resolved.url
+                                    )
+                                )
+
+                                successfullyResolvedSongs.add(
+                                    song
+                                )
+                            },
+
+                            onFailure = {
+                                // Skip songs that cannot be resolved.
+                            }
+                        )
+
+                    } catch (_: Exception) {
+                        // Skip failed songs and continue.
+                    }
+                }
+
+
+                // ----------------------------------
+                // NOTHING COULD BE RESOLVED
+                // ----------------------------------
+
+                if (mediaItems.isEmpty()) {
+
+                    throw Exception(
+                        "Unable to load songs"
+                    )
+                }
+
+
+                // ----------------------------------
+                // REPLACE PLAYER QUEUE
+                // ----------------------------------
+
+                controller.setMediaItems(
+                    mediaItems,
+                    0,
+                    0L
+                )
+
+                controller.prepare()
+
+                controller.play()
+
+
+                // ----------------------------------
+                // UPDATE CURRENT SONG
+                // ----------------------------------
+
+                _currentSong.value =
+                    successfullyResolvedSongs.first()
+
+                _currentQueueIndex.value =
+                    0
+
+                _isPlaying.value =
+                    true
+
+
+                // ----------------------------------
+                // ADD FIRST SONG TO HISTORY
+                // ----------------------------------
+
+                libraryRepository
+                    .addToHistory(
+                        successfullyResolvedSongs.first()
+                    )
+
+
+                // ----------------------------------
+                // UPDATE QUEUE STATE
+                // ----------------------------------
+
+                updateQueue(
+                    controller
+                )
+
+            } catch (
+                exception: Exception
+            ) {
+
+                _error.value =
+                    exception.message
+                        ?: "Unable to play songs"
+
+                _isPlaying.value =
+                    false
+
+            } finally {
+
+                _isLoading.value =
+                    false
+            }
+        }
+    }
+
+
+    // ==========================================
     // ADD TO QUEUE
     // ==========================================
 
@@ -731,16 +882,13 @@ class PlaybackViewModel(
                             "Music player is still starting"
                         )
 
-
                 _isLoading.value =
                     true
-
 
                 val result =
                     streamResolver.resolve(
                         song
                     )
-
 
                 result.fold(
 
@@ -752,17 +900,14 @@ class PlaybackViewModel(
                                 resolved.url
                             )
 
-
                         controller.addMediaItem(
                             mediaItem
                         )
-
 
                         updateQueue(
                             controller
                         )
                     },
-
 
                     onFailure = { exception ->
 
@@ -805,12 +950,10 @@ class PlaybackViewModel(
                     mediaController
                         ?: return@launch
 
-
                 val result =
                     streamResolver.resolve(
                         song
                     )
-
 
                 result.fold(
 
@@ -821,7 +964,6 @@ class PlaybackViewModel(
                                 song,
                                 resolved.url
                             )
-
 
                         val nextIndex =
                             if (
@@ -835,18 +977,15 @@ class PlaybackViewModel(
                                 0
                             }
 
-
                         controller.addMediaItem(
                             nextIndex,
                             mediaItem
                         )
 
-
                         updateQueue(
                             controller
                         )
                     },
-
 
                     onFailure = { exception ->
 
@@ -880,7 +1019,6 @@ class PlaybackViewModel(
             mediaController
                 ?: return
 
-
         if (
             index < 0 ||
             index >= controller.mediaItemCount
@@ -889,17 +1027,14 @@ class PlaybackViewModel(
             return
         }
 
-
         controller.seekToDefaultPosition(
             index
         )
 
         controller.play()
 
-
         _currentQueueIndex.value =
             index
-
 
         restoreCurrentSong(
             controller
@@ -919,7 +1054,6 @@ class PlaybackViewModel(
             mediaController
                 ?: return
 
-
         if (
             index < 0 ||
             index >= controller.mediaItemCount
@@ -928,16 +1062,13 @@ class PlaybackViewModel(
             return
         }
 
-
         controller.removeMediaItem(
             index
         )
 
-
         updateQueue(
             controller
         )
-
 
         if (
             controller.mediaItemCount == 0
@@ -965,7 +1096,6 @@ class PlaybackViewModel(
             mediaController
                 ?: return
 
-
         // ------------------------------------------
         // IMPORTANT:
         // Keep the currently playing song.
@@ -975,7 +1105,6 @@ class PlaybackViewModel(
         val currentIndex =
             controller.currentMediaItemIndex
 
-
         if (
             currentIndex < 0 ||
             currentIndex >= controller.mediaItemCount
@@ -984,13 +1113,11 @@ class PlaybackViewModel(
             return
         }
 
-
         // Save the currently playing MediaItem
         val currentMediaItem =
             controller.getMediaItemAt(
                 currentIndex
             )
-
 
         // Save playback state
         val wasPlaying =
@@ -999,35 +1126,29 @@ class PlaybackViewModel(
         val currentPosition =
             controller.currentPosition
 
-
         // ------------------------------------------
         // Remove everything except current song
         // ------------------------------------------
 
         controller.clearMediaItems()
 
-
         // Put current song back
         controller.setMediaItem(
             currentMediaItem
         )
-
 
         // Restore playback position
         controller.seekTo(
             currentPosition
         )
 
-
         // Prepare again
         controller.prepare()
-
 
         // Continue playing if it was playing
         if (wasPlaying) {
             controller.play()
         }
-
 
         // ------------------------------------------
         // Update UI state
@@ -1063,7 +1184,6 @@ class PlaybackViewModel(
             mediaController
                 ?: return
 
-
         // If more than 3 seconds into
         // the current song, restart it.
 
@@ -1078,7 +1198,6 @@ class PlaybackViewModel(
 
             return
         }
-
 
         // Otherwise go to previous item.
 
@@ -1107,7 +1226,6 @@ class PlaybackViewModel(
             mediaController
                 ?: return
 
-
         if (
             controller.hasNextMediaItem()
         ) {
@@ -1134,10 +1252,8 @@ class PlaybackViewModel(
             mediaController
                 ?: return
 
-
         controller.shuffleModeEnabled =
             !controller.shuffleModeEnabled
-
 
         _shuffleEnabled.value =
             controller.shuffleModeEnabled
@@ -1154,7 +1270,6 @@ class PlaybackViewModel(
             mediaController
                 ?: return
 
-
         val nextMode =
             when (
                 controller.repeatMode
@@ -1170,10 +1285,8 @@ class PlaybackViewModel(
                     Player.REPEAT_MODE_OFF
             }
 
-
         controller.repeatMode =
             nextMode
-
 
         _repeatMode.value =
             nextMode
@@ -1189,7 +1302,6 @@ class PlaybackViewModel(
         val controller =
             mediaController
                 ?: return
-
 
         if (
             controller.isPlaying
