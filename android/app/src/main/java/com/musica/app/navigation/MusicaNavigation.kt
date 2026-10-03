@@ -26,9 +26,13 @@ import androidx.navigation.navArgument
 
 import com.musica.app.data.local.DatabaseProvider
 import com.musica.app.data.repository.StatsRepository
+
 import com.musica.app.ui.explore.ExploreScreen
 import com.musica.app.ui.home.HomeScreen
+import com.musica.app.ui.history.HistoryScreen
 import com.musica.app.ui.library.LibraryScreen
+import com.musica.app.ui.library.LibraryViewModel
+import com.musica.app.ui.library.LibraryViewModelFactory
 import com.musica.app.ui.library.LikedSongsScreen
 import com.musica.app.ui.playlist.PlaylistScreen
 import com.musica.app.ui.player.NowPlayingScreen
@@ -41,25 +45,78 @@ import com.musica.app.ui.stats.StatsViewModelFactory
 @Composable
 fun MusicaNavigation() {
 
-    val navController = rememberNavController()
+    val navController =
+        rememberNavController()
 
-    val context = LocalContext.current
+    val context =
+        LocalContext.current
+
+
+    // ==========================================
+    // DATABASE
+    // ==========================================
+
+    val database =
+        remember {
+            DatabaseProvider.getDatabase(
+                context
+            )
+        }
+
+
+    // ==========================================
+    // LIBRARY REPOSITORY
+    // ==========================================
+
+    val libraryRepository =
+        remember {
+
+            com.musica.app.data.repository.LibraryRepository(
+
+                database.likedSongDao(),
+
+                database.historyDao(),
+
+                database.playlistDao(),
+
+                database.playlistSongDao()
+            )
+        }
+
+
+    // ==========================================
+    // LIBRARY VIEWMODEL
+    // ==========================================
+
+    val libraryViewModel: LibraryViewModel =
+        viewModel(
+            factory =
+                LibraryViewModelFactory(
+                    libraryRepository
+                )
+        )
+
 
     // ==========================================
     // STATS / TOP 50
     // ==========================================
 
-    val statsRepository = remember {
-        val database = DatabaseProvider.getDatabase(context)
+    val statsRepository =
+        remember {
 
-        StatsRepository(
-            database.historyDao()
+            StatsRepository(
+                database.historyDao()
+            )
+        }
+
+
+    val statsViewModel: StatsViewModel =
+        viewModel(
+            factory =
+                StatsViewModelFactory(
+                    statsRepository
+                )
         )
-    }
-
-    val statsViewModel: StatsViewModel = viewModel(
-        factory = StatsViewModelFactory(statsRepository)
-    )
 
 
     // ==========================================
@@ -137,12 +194,15 @@ fun MusicaNavigation() {
                                         .startDestinationId
                                 ) {
 
-                                    saveState = true
+                                    saveState =
+                                        true
                                 }
 
-                                launchSingleTop = true
+                                launchSingleTop =
+                                    true
 
-                                restoreState = true
+                                restoreState =
+                                    true
                             }
                         },
 
@@ -272,8 +332,14 @@ fun MusicaNavigation() {
                 Screen.History.route
             ) {
 
-                // History screen will be connected
-                // separately.
+                HistoryScreen(
+
+                    libraryViewModel =
+                        libraryViewModel,
+
+                    navController =
+                        navController
+                )
             }
 
 
@@ -286,8 +352,12 @@ fun MusicaNavigation() {
             ) {
 
                 StatsScreen(
-                    viewModel = statsViewModel,
-                    navController = navController    
+
+                    viewModel =
+                        statsViewModel,
+
+                    navController =
+                        navController
                 )
             }
 
