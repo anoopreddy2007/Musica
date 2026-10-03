@@ -14,7 +14,9 @@ import androidx.media3.session.SessionToken
 
 import com.google.common.util.concurrent.ListenableFuture
 import com.musica.app.data.extractor.AudioStreamResolver
+import com.musica.app.data.local.DatabaseProvider
 import com.musica.app.data.model.Song
+import com.musica.app.data.repository.LibraryRepository
 import com.musica.app.player.MusicService
 
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,6 +35,23 @@ class PlaybackViewModel(
 
     private val streamResolver =
         AudioStreamResolver(application)
+
+
+    // ==========================================
+    // LIBRARY / HISTORY
+    // ==========================================
+
+    private val libraryRepository =
+        DatabaseProvider
+            .getDatabase(application)
+            .let { database ->
+                LibraryRepository(
+                    database.likedSongDao(),
+                    database.historyDao(),
+                    database.playlistDao(),
+                    database.playlistSongDao()
+                )
+            }
 
 
     // ==========================================
@@ -174,7 +193,6 @@ class PlaybackViewModel(
                 sessionToken
             )
                 .buildAsync()
-
 
         controllerFuture?.addListener(
 
@@ -643,6 +661,16 @@ class PlaybackViewModel(
 
                         _currentQueueIndex.value =
                             0
+
+
+                        // ----------------------------------
+                        // ADD TO LISTENING HISTORY
+                        // ----------------------------------
+
+                        libraryRepository
+                            .addToHistory(
+                                song
+                            )
 
 
                         updateQueue(

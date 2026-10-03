@@ -12,7 +12,10 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -21,6 +24,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 
+import com.musica.app.data.local.DatabaseProvider
+import com.musica.app.data.repository.StatsRepository
 import com.musica.app.ui.explore.ExploreScreen
 import com.musica.app.ui.home.HomeScreen
 import com.musica.app.ui.library.LibraryScreen
@@ -28,13 +33,33 @@ import com.musica.app.ui.library.LikedSongsScreen
 import com.musica.app.ui.playlist.PlaylistScreen
 import com.musica.app.ui.player.NowPlayingScreen
 import com.musica.app.ui.search.SearchScreen
+import com.musica.app.ui.stats.StatsScreen
+import com.musica.app.ui.stats.StatsViewModel
+import com.musica.app.ui.stats.StatsViewModelFactory
 
 
 @Composable
 fun MusicaNavigation() {
 
-    val navController =
-        rememberNavController()
+    val navController = rememberNavController()
+
+    val context = LocalContext.current
+
+    // ==========================================
+    // STATS / TOP 50
+    // ==========================================
+
+    val statsRepository = remember {
+        val database = DatabaseProvider.getDatabase(context)
+
+        StatsRepository(
+            database.historyDao()
+        )
+    }
+
+    val statsViewModel: StatsViewModel = viewModel(
+        factory = StatsViewModelFactory(statsRepository)
+    )
 
 
     // ==========================================
@@ -235,6 +260,34 @@ fun MusicaNavigation() {
                 LikedSongsScreen(
                     navController =
                         navController
+                )
+            }
+
+
+            // ======================================
+            // HISTORY
+            // ======================================
+
+            composable(
+                Screen.History.route
+            ) {
+
+                // History screen will be connected
+                // separately.
+            }
+
+
+            // ======================================
+            // STATS / TOP 50
+            // ======================================
+
+            composable(
+                Screen.Stats.route
+            ) {
+
+                StatsScreen(
+                    viewModel =
+                        statsViewModel
                 )
             }
 

@@ -8,10 +8,12 @@ sealed class Screen(
         route = "home",
         title = "Home"
     )
+
     data object NowPlaying : Screen(
-        "now_playing",
-        "Now Playing"
+        route = "now_playing",
+        title = "Now Playing"
     )
+
     data object Explore : Screen(
         route = "explore",
         title = "Explore"
