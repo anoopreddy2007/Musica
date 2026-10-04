@@ -24,24 +24,59 @@ interface HistoryDao {
     @Query("""
         SELECT
             h.videoId AS videoId,
-            h.title AS title,
-            h.artists AS artists,
-            h.album AS album,
-            h.duration AS duration,
-            h.thumbnail AS thumbnail,
+
+            (
+                SELECT h2.title
+                FROM play_history h2
+                WHERE h2.videoId = h.videoId
+                ORDER BY h2.playedAt DESC, h2.id DESC
+                LIMIT 1
+            ) AS title,
+
+            (
+                SELECT h2.artists
+                FROM play_history h2
+                WHERE h2.videoId = h.videoId
+                ORDER BY h2.playedAt DESC, h2.id DESC
+                LIMIT 1
+            ) AS artists,
+
+            (
+                SELECT h2.album
+                FROM play_history h2
+                WHERE h2.videoId = h.videoId
+                ORDER BY h2.playedAt DESC, h2.id DESC
+                LIMIT 1
+            ) AS album,
+
+            (
+                SELECT h2.duration
+                FROM play_history h2
+                WHERE h2.videoId = h.videoId
+                ORDER BY h2.playedAt DESC, h2.id DESC
+                LIMIT 1
+            ) AS duration,
+
+            (
+                SELECT h2.thumbnail
+                FROM play_history h2
+                WHERE h2.videoId = h.videoId
+                ORDER BY h2.playedAt DESC, h2.id DESC
+                LIMIT 1
+            ) AS thumbnail,
+
             COUNT(*) AS playCount,
+
             MAX(h.playedAt) AS lastPlayedAt
+
         FROM play_history h
-        GROUP BY
-            h.videoId,
-            h.title,
-            h.artists,
-            h.album,
-            h.duration,
-            h.thumbnail
+
+        GROUP BY h.videoId
+
         ORDER BY
             playCount DESC,
             lastPlayedAt DESC
+
         LIMIT 50
     """)
     fun getTop50Songs(): Flow<List<TopSong>>

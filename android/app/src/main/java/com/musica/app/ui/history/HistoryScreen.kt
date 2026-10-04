@@ -23,10 +23,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+
 import com.musica.app.data.local.HistoryEntity
 import com.musica.app.data.model.Song
-import com.musica.app.ui.player.PlaybackViewModel
 import com.musica.app.ui.library.LibraryViewModel
+import com.musica.app.ui.player.PlaybackViewModel
+
 
 @Composable
 fun HistoryScreen(
@@ -34,10 +36,18 @@ fun HistoryScreen(
     navController: NavController
 ) {
 
+    // ==================================================
+    // HISTORY DATA
+    // ==================================================
+
     val history by libraryViewModel.history.collectAsState()
 
-    val playbackViewModel: PlaybackViewModel =
-        viewModel()
+    val playbackViewModel: PlaybackViewModel = viewModel()
+
+
+    // ==================================================
+    // MAIN SCREEN
+    // ==================================================
 
     Column(
         modifier = Modifier
@@ -45,9 +55,9 @@ fun HistoryScreen(
             .padding(20.dp)
     ) {
 
-        // ==========================================
+        // ==================================================
         // HEADER
-        // ==========================================
+        // ==================================================
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -73,23 +83,22 @@ fun HistoryScreen(
             }
         }
 
+
         Spacer(
             modifier = Modifier.height(16.dp)
         )
 
 
-        // ==========================================
+        // ==================================================
         // EMPTY STATE
-        // ==========================================
+        // ==================================================
 
         if (history.isEmpty()) {
 
             Column(
                 modifier = Modifier.fillMaxSize(),
-                verticalArrangement =
-                    Arrangement.Center,
-                horizontalAlignment =
-                    Alignment.CenterHorizontally
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
 
                 Text(
@@ -108,16 +117,13 @@ fun HistoryScreen(
 
         } else {
 
-
-            // ==========================================
+            // ==================================================
             // HISTORY LIST
-            // ==========================================
+            // ==================================================
 
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-
-                verticalArrangement =
-                    Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
 
                 items(
@@ -128,44 +134,36 @@ fun HistoryScreen(
                     HistoryRow(
                         historyItem = historyItem,
 
+                        // ==========================================
+                        // PLAY HISTORY SONG
+                        // ==========================================
+
                         onClick = {
 
-                            val song =
-                                Song(
-                                    videoId =
-                                        historyItem.videoId,
+                            val song = Song(
+                                videoId = historyItem.videoId,
+                                title = historyItem.title,
 
-                                    title =
-                                        historyItem.title,
+                                artists = historyItem.artists
+                                    .split(",")
+                                    .map { it.trim() }
+                                    .filter { it.isNotBlank() },
 
-                                    artists =
-                                        historyItem.artists
-                                            .split(",")
-                                            .map {
-                                                it.trim()
-                                            }
-                                            .filter {
-                                                it.isNotBlank()
-                                            },
-
-                                    album =
-                                        historyItem.album,
-
-                                    duration =
-                                        historyItem.duration,
-
-                                    thumbnail =
-                                        historyItem.thumbnail
-                                )
-
-                            playbackViewModel.playSong(
-                                song
+                                album = historyItem.album,
+                                duration = historyItem.duration,
+                                thumbnail = historyItem.thumbnail
                             )
+
+                            playbackViewModel.playSong(song)
 
                             navController.navigate(
                                 "now_playing"
                             )
                         },
+
+                        // ==========================================
+                        // DELETE HISTORY ITEM
+                        // ==========================================
 
                         onDelete = {
                             libraryViewModel.deleteHistoryItem(
@@ -180,9 +178,9 @@ fun HistoryScreen(
 }
 
 
-// ==================================================
+// ==========================================================
 // HISTORY ROW
-// ==================================================
+// ==========================================================
 
 @Composable
 private fun HistoryRow(
@@ -201,37 +199,32 @@ private fun HistoryRow(
                 vertical = 8.dp
             ),
 
-        verticalAlignment =
-            Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically
     ) {
 
-        // ==========================================
-        // SONG INFO
-        // ==========================================
+        // ==================================================
+        // SONG INFORMATION
+        // ==================================================
 
         Column(
-            modifier =
-                Modifier.weight(1f)
+            modifier = Modifier.weight(1f)
         ) {
 
             Text(
                 text = historyItem.title,
-
-                fontWeight =
-                    FontWeight.SemiBold
+                fontWeight = FontWeight.SemiBold
             )
 
             Text(
                 text = historyItem.artists,
-
                 fontSize = 14.sp
             )
         }
 
 
-        // ==========================================
-        // DELETE
-        // ==========================================
+        // ==================================================
+        // DELETE BUTTON
+        // ==================================================
 
         Button(
             onClick = onDelete

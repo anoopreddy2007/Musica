@@ -29,18 +29,17 @@ class PlaybackViewModel(
     application: Application
 ) : AndroidViewModel(application) {
 
-
-    // ==========================================
+    // ==========================================================
     // EXTRACTOR
-    // ==========================================
+    // ==========================================================
 
     private val streamResolver =
         AudioStreamResolver(application)
 
 
-    // ==========================================
+    // ==========================================================
     // LIBRARY / HISTORY
-    // ==========================================
+    // ==========================================================
 
     private val libraryRepository =
         DatabaseProvider
@@ -56,9 +55,9 @@ class PlaybackViewModel(
             }
 
 
-    // ==========================================
+    // ==========================================================
     // MEDIA CONTROLLER
-    // ==========================================
+    // ==========================================================
 
     private var mediaController: MediaController? = null
 
@@ -66,9 +65,9 @@ class PlaybackViewModel(
         ListenableFuture<MediaController>? = null
 
 
-    // ==========================================
+    // ==========================================================
     // CURRENT SONG
-    // ==========================================
+    // ==========================================================
 
     private val _currentSong =
         MutableStateFlow<Song?>(null)
@@ -78,9 +77,9 @@ class PlaybackViewModel(
         _currentSong.asStateFlow()
 
 
-    // ==========================================
+    // ==========================================================
     // PLAYING
-    // ==========================================
+    // ==========================================================
 
     private val _isPlaying =
         MutableStateFlow(false)
@@ -90,9 +89,9 @@ class PlaybackViewModel(
         _isPlaying.asStateFlow()
 
 
-    // ==========================================
+    // ==========================================================
     // LOADING
-    // ==========================================
+    // ==========================================================
 
     private val _isLoading =
         MutableStateFlow(false)
@@ -102,9 +101,9 @@ class PlaybackViewModel(
         _isLoading.asStateFlow()
 
 
-    // ==========================================
+    // ==========================================================
     // ERROR
-    // ==========================================
+    // ==========================================================
 
     private val _error =
         MutableStateFlow<String?>(null)
@@ -114,9 +113,9 @@ class PlaybackViewModel(
         _error.asStateFlow()
 
 
-    // ==========================================
+    // ==========================================================
     // QUEUE
-    // ==========================================
+    // ==========================================================
 
     private val _queue =
         MutableStateFlow<List<Song>>(emptyList())
@@ -126,9 +125,9 @@ class PlaybackViewModel(
         _queue.asStateFlow()
 
 
-    // ==========================================
+    // ==========================================================
     // CURRENT QUEUE INDEX
-    // ==========================================
+    // ==========================================================
 
     private val _currentQueueIndex =
         MutableStateFlow(-1)
@@ -138,9 +137,9 @@ class PlaybackViewModel(
         _currentQueueIndex.asStateFlow()
 
 
-    // ==========================================
+    // ==========================================================
     // SHUFFLE
-    // ==========================================
+    // ==========================================================
 
     private val _shuffleEnabled =
         MutableStateFlow(false)
@@ -150,9 +149,9 @@ class PlaybackViewModel(
         _shuffleEnabled.asStateFlow()
 
 
-    // ==========================================
+    // ==========================================================
     // REPEAT
-    // ==========================================
+    // ==========================================================
 
     private val _repeatMode =
         MutableStateFlow(Player.REPEAT_MODE_OFF)
@@ -162,18 +161,18 @@ class PlaybackViewModel(
         _repeatMode.asStateFlow()
 
 
-    // ==========================================
+    // ==========================================================
     // INITIALIZE
-    // ==========================================
+    // ==========================================================
 
     init {
         connectToMusicService()
     }
 
 
-    // ==========================================
+    // ==========================================================
     // CONNECT TO MUSIC SERVICE
-    // ==========================================
+    // ==========================================================
 
     private fun connectToMusicService() {
 
@@ -209,10 +208,7 @@ class PlaybackViewModel(
                     mediaController =
                         controller
 
-
-                    // ==================================
-                    // RESTORE PLAYBACK STATE
-                    // ==================================
+                    // Restore current playback state.
 
                     restoreCurrentSong(
                         controller
@@ -235,9 +231,7 @@ class PlaybackViewModel(
                         controller.currentMediaItemIndex
 
 
-                    // ==================================
-                    // PLAYER LISTENER
-                    // ==================================
+                    // Player listener.
 
                     controller.addListener(
 
@@ -344,9 +338,9 @@ class PlaybackViewModel(
     }
 
 
-    // ==========================================
+    // ==========================================================
     // RESTORE CURRENT SONG
-    // ==========================================
+    // ==========================================================
 
     private fun restoreCurrentSong(
         controller: MediaController
@@ -416,9 +410,9 @@ class PlaybackViewModel(
     }
 
 
-    // ==========================================
+    // ==========================================================
     // CONVERT MEDIA ITEM → SONG
-    // ==========================================
+    // ==========================================================
 
     private fun mediaItemToSong(
         mediaItem: MediaItem
@@ -479,9 +473,9 @@ class PlaybackViewModel(
     }
 
 
-    // ==========================================
+    // ==========================================================
     // UPDATE QUEUE
-    // ==========================================
+    // ==========================================================
 
     private fun updateQueue(
         controller: MediaController
@@ -503,7 +497,6 @@ class PlaybackViewModel(
                 )
 
             if (song != null) {
-
                 songs.add(song)
             }
         }
@@ -516,9 +509,9 @@ class PlaybackViewModel(
     }
 
 
-    // ==========================================
+    // ==========================================================
     // CREATE MEDIA ITEM
-    // ==========================================
+    // ==========================================================
 
     private fun createMediaItem(
         song: Song,
@@ -552,11 +545,6 @@ class PlaybackViewModel(
 
         return MediaItem.Builder()
 
-            // IMPORTANT:
-            // videoId is stored here so
-            // Now Playing can restore
-            // the correct Song.
-
             .setMediaId(
                 song.videoId
             )
@@ -573,9 +561,9 @@ class PlaybackViewModel(
     }
 
 
-    // ==========================================
+    // ==========================================================
     // PLAY SONG
-    // ==========================================
+    // ==========================================================
 
     fun playSong(
         song: Song
@@ -597,16 +585,10 @@ class PlaybackViewModel(
                             "Music player is still starting"
                         )
 
-
-                // ----------------------------------
-                // RESOLVE AUDIO
-                // ----------------------------------
-
                 val result =
                     streamResolver.resolve(
                         song
                     )
-
 
                 result.fold(
 
@@ -618,11 +600,6 @@ class PlaybackViewModel(
                                 resolved.url
                             )
 
-
-                        // ----------------------------------
-                        // NEW PLAYBACK CONTEXT
-                        // ----------------------------------
-
                         controller.setMediaItem(
                             mediaItem
                         )
@@ -630,11 +607,6 @@ class PlaybackViewModel(
                         controller.prepare()
 
                         controller.play()
-
-
-                        // ----------------------------------
-                        // UPDATE UI
-                        // ----------------------------------
 
                         _currentSong.value =
                             song
@@ -645,22 +617,15 @@ class PlaybackViewModel(
                         _currentQueueIndex.value =
                             0
 
-
-                        // ----------------------------------
-                        // ADD TO LISTENING HISTORY
-                        // ----------------------------------
-
                         libraryRepository
                             .addToHistory(
                                 song
                             )
 
-
                         updateQueue(
                             controller
                         )
                     },
-
 
                     onFailure = { exception ->
 
@@ -693,9 +658,9 @@ class PlaybackViewModel(
     }
 
 
-    // ==========================================
+    // ==========================================================
     // PLAY MULTIPLE SONGS
-    // ==========================================
+    // ==========================================================
 
     fun playSongs(
         songs: List<Song>,
@@ -722,11 +687,6 @@ class PlaybackViewModel(
                             "Music player is still starting"
                         )
 
-
-                // ----------------------------------
-                // DETERMINE ORDER
-                // ----------------------------------
-
                 val orderedSongs =
                     if (shuffle) {
                         songs.shuffled()
@@ -734,17 +694,11 @@ class PlaybackViewModel(
                         songs
                     }
 
-
-                // ----------------------------------
-                // RESOLVE ALL SONGS SEQUENTIALLY
-                // ----------------------------------
-
                 val mediaItems =
                     mutableListOf<MediaItem>()
 
                 val successfullyResolvedSongs =
                     mutableListOf<Song>()
-
 
                 for (song in orderedSongs) {
 
@@ -772,19 +726,14 @@ class PlaybackViewModel(
                             },
 
                             onFailure = {
-                                // Skip songs that cannot be resolved.
+                                // Skip songs that fail.
                             }
                         )
 
                     } catch (_: Exception) {
-                        // Skip failed songs and continue.
+                        // Continue with remaining songs.
                     }
                 }
-
-
-                // ----------------------------------
-                // NOTHING COULD BE RESOLVED
-                // ----------------------------------
 
                 if (mediaItems.isEmpty()) {
 
@@ -793,10 +742,11 @@ class PlaybackViewModel(
                     )
                 }
 
+                controller.shuffleModeEnabled =
+                    false
 
-                // ----------------------------------
-                // REPLACE PLAYER QUEUE
-                // ----------------------------------
+                _shuffleEnabled.value =
+                    false
 
                 controller.setMediaItems(
                     mediaItems,
@@ -808,11 +758,6 @@ class PlaybackViewModel(
 
                 controller.play()
 
-
-                // ----------------------------------
-                // UPDATE CURRENT SONG
-                // ----------------------------------
-
                 _currentSong.value =
                     successfullyResolvedSongs.first()
 
@@ -822,20 +767,10 @@ class PlaybackViewModel(
                 _isPlaying.value =
                     true
 
-
-                // ----------------------------------
-                // ADD FIRST SONG TO HISTORY
-                // ----------------------------------
-
                 libraryRepository
                     .addToHistory(
                         successfullyResolvedSongs.first()
                     )
-
-
-                // ----------------------------------
-                // UPDATE QUEUE STATE
-                // ----------------------------------
 
                 updateQueue(
                     controller
@@ -861,9 +796,9 @@ class PlaybackViewModel(
     }
 
 
-    // ==========================================
+    // ==========================================================
     // ADD TO QUEUE
-    // ==========================================
+    // ==========================================================
 
     fun addToQueue(
         song: Song
@@ -934,9 +869,9 @@ class PlaybackViewModel(
     }
 
 
-    // ==========================================
+    // ==========================================================
     // PLAY NEXT
-    // ==========================================
+    // ==========================================================
 
     fun playNext(
         song: Song
@@ -969,11 +904,8 @@ class PlaybackViewModel(
                             if (
                                 controller.currentMediaItemIndex >= 0
                             ) {
-
                                 controller.currentMediaItemIndex + 1
-
                             } else {
-
                                 0
                             }
 
@@ -1007,9 +939,9 @@ class PlaybackViewModel(
     }
 
 
-    // ==========================================
+    // ==========================================================
     // PLAY QUEUE ITEM
-    // ==========================================
+    // ==========================================================
 
     fun playQueueItem(
         index: Int
@@ -1023,7 +955,6 @@ class PlaybackViewModel(
             index < 0 ||
             index >= controller.mediaItemCount
         ) {
-
             return
         }
 
@@ -1042,9 +973,201 @@ class PlaybackViewModel(
     }
 
 
-    // ==========================================
+    // ==========================================================
+    // REORDER QUEUE
+    // ==========================================================
+
+    fun reorderQueue(
+        fromIndex: Int,
+        toIndex: Int
+    ) {
+
+        val controller =
+            mediaController
+                ?: return
+
+        if (
+            fromIndex < 0 ||
+            fromIndex >= controller.mediaItemCount ||
+            toIndex < 0 ||
+            toIndex >= controller.mediaItemCount ||
+            fromIndex == toIndex
+        ) {
+            return
+        }
+
+        val currentIndex =
+            controller.currentMediaItemIndex
+
+        // Never move the currently playing song.
+
+        if (
+            fromIndex == currentIndex ||
+            toIndex == currentIndex
+        ) {
+            return
+        }
+
+        // Keep current song fixed.
+        // Items before current can only move within
+        // the "before current" section.
+        // Items after current can only move within
+        // the "after current" section.
+
+        val fromIsBeforeCurrent =
+            currentIndex >= 0 &&
+                fromIndex < currentIndex
+
+        val toIsBeforeCurrent =
+            currentIndex >= 0 &&
+                toIndex < currentIndex
+
+        if (
+            currentIndex >= 0 &&
+            fromIsBeforeCurrent != toIsBeforeCurrent
+        ) {
+            return
+        }
+
+        controller.moveMediaItem(
+            fromIndex,
+            toIndex
+        )
+
+        updateQueue(
+            controller
+        )
+    }
+
+
+    // ==========================================================
+    // SHUFFLE UPCOMING QUEUE
+    // ==========================================================
+
+    fun shuffleUpcomingQueue() {
+
+        val controller =
+            mediaController
+                ?: return
+
+        val currentIndex =
+            controller.currentMediaItemIndex
+
+        if (
+            currentIndex < 0 ||
+            currentIndex >= controller.mediaItemCount - 1
+        ) {
+            return
+        }
+
+        val upcomingCount =
+            controller.mediaItemCount -
+                currentIndex -
+                1
+
+        if (upcomingCount < 2) {
+            return
+        }
+
+        // Queue shuffle is separate from the normal
+        // Media3 shuffle mode.
+        //
+        // We physically randomize the upcoming items,
+        // so disable Media3 shuffle to make Next follow
+        // this new physical order.
+
+        controller.shuffleModeEnabled =
+            false
+
+        _shuffleEnabled.value =
+            false
+
+        val originalIndices =
+            (currentIndex + 1 until controller.mediaItemCount)
+                .toList()
+
+        // FIX:
+        // Make this list mutable because we use
+        // removeAt() and add() below.
+        val shuffledIndices =
+            originalIndices
+                .shuffled()
+                .toMutableList()
+
+        // GUARANTEE a different order when possible.
+
+        if (
+            shuffledIndices == originalIndices &&
+            shuffledIndices.size > 1
+        ) {
+
+            val first =
+                shuffledIndices.removeAt(0)
+
+            shuffledIndices.add(first)
+        }
+
+        // Track which original queue item currently
+        // occupies each position.
+
+        val currentOriginalOrder =
+            originalIndices.toMutableList()
+
+        for (
+            targetPosition
+            in originalIndices.indices
+        ) {
+
+            val targetIndex =
+                currentIndex +
+                    1 +
+                    targetPosition
+
+            val desiredOriginalIndex =
+                shuffledIndices[targetPosition]
+
+            val currentPosition =
+                currentOriginalOrder.indexOf(
+                    desiredOriginalIndex
+                )
+
+            if (
+                currentPosition >= 0 &&
+                currentPosition != targetPosition
+            ) {
+
+                val fromMediaIndex =
+                    currentIndex +
+                        1 +
+                        currentPosition
+
+                controller.moveMediaItem(
+                    fromMediaIndex,
+                    targetIndex
+                )
+
+                val movedOriginalIndex =
+                    currentOriginalOrder
+                        .removeAt(
+                            currentPosition
+                        )
+
+                currentOriginalOrder.add(
+                    targetPosition,
+                    movedOriginalIndex
+                )
+            }
+        }
+
+        updateQueue(
+            controller
+        )
+    }
+
+
+    // ==========================================================
     // REMOVE FROM QUEUE
-    // ==========================================
+    // ==========================================================
 
     fun removeFromQueue(
         index: Int
@@ -1058,7 +1181,15 @@ class PlaybackViewModel(
             index < 0 ||
             index >= controller.mediaItemCount
         ) {
+            return
+        }
 
+        // Protect current song.
+
+        if (
+            index ==
+            controller.currentMediaItemIndex
+        ) {
             return
         }
 
@@ -1086,21 +1217,15 @@ class PlaybackViewModel(
     }
 
 
-    // ==========================================
+    // ==========================================================
     // CLEAR QUEUE
-    // ==========================================
+    // ==========================================================
 
     fun clearQueue() {
 
         val controller =
             mediaController
                 ?: return
-
-        // ------------------------------------------
-        // IMPORTANT:
-        // Keep the currently playing song.
-        // Clear only the upcoming queue items.
-        // ------------------------------------------
 
         val currentIndex =
             controller.currentMediaItemIndex
@@ -1109,50 +1234,35 @@ class PlaybackViewModel(
             currentIndex < 0 ||
             currentIndex >= controller.mediaItemCount
         ) {
-
             return
         }
 
-        // Save the currently playing MediaItem
         val currentMediaItem =
             controller.getMediaItemAt(
                 currentIndex
             )
 
-        // Save playback state
         val wasPlaying =
             controller.isPlaying
 
         val currentPosition =
             controller.currentPosition
 
-        // ------------------------------------------
-        // Remove everything except current song
-        // ------------------------------------------
-
         controller.clearMediaItems()
 
-        // Put current song back
         controller.setMediaItem(
             currentMediaItem
         )
 
-        // Restore playback position
         controller.seekTo(
             currentPosition
         )
 
-        // Prepare again
         controller.prepare()
 
-        // Continue playing if it was playing
         if (wasPlaying) {
             controller.play()
         }
-
-        // ------------------------------------------
-        // Update UI state
-        // ------------------------------------------
 
         _currentSong.value =
             mediaItemToSong(
@@ -1174,18 +1284,15 @@ class PlaybackViewModel(
     }
 
 
-    // ==========================================
+    // ==========================================================
     // PREVIOUS
-    // ==========================================
+    // ==========================================================
 
     fun previousSong() {
 
         val controller =
             mediaController
                 ?: return
-
-        // If more than 3 seconds into
-        // the current song, restart it.
 
         if (
             controller.currentPosition >
@@ -1198,8 +1305,6 @@ class PlaybackViewModel(
 
             return
         }
-
-        // Otherwise go to previous item.
 
         if (
             controller.hasPreviousMediaItem()
@@ -1216,9 +1321,9 @@ class PlaybackViewModel(
     }
 
 
-    // ==========================================
+    // ==========================================================
     // NEXT
-    // ==========================================
+    // ==========================================================
 
     fun nextSong() {
 
@@ -1234,17 +1339,14 @@ class PlaybackViewModel(
 
         } else {
 
-            // If there is no next song,
-            // simply stop at the end.
-
             controller.pause()
         }
     }
 
 
-    // ==========================================
-    // SHUFFLE
-    // ==========================================
+    // ==========================================================
+    // GLOBAL SHUFFLE
+    // ==========================================================
 
     fun toggleShuffle() {
 
@@ -1260,9 +1362,9 @@ class PlaybackViewModel(
     }
 
 
-    // ==========================================
+    // ==========================================================
     // REPEAT
-    // ==========================================
+    // ==========================================================
 
     fun cycleRepeatMode() {
 
@@ -1293,9 +1395,9 @@ class PlaybackViewModel(
     }
 
 
-    // ==========================================
+    // ==========================================================
     // PLAY / PAUSE
-    // ==========================================
+    // ==========================================================
 
     fun togglePlayPause() {
 
@@ -1316,9 +1418,9 @@ class PlaybackViewModel(
     }
 
 
-    // ==========================================
+    // ==========================================================
     // PAUSE
-    // ==========================================
+    // ==========================================================
 
     fun pause() {
 
@@ -1326,9 +1428,9 @@ class PlaybackViewModel(
     }
 
 
-    // ==========================================
+    // ==========================================================
     // RESUME
-    // ==========================================
+    // ==========================================================
 
     fun resume() {
 
@@ -1336,9 +1438,9 @@ class PlaybackViewModel(
     }
 
 
-    // ==========================================
+    // ==========================================================
     // SEEK
-    // ==========================================
+    // ==========================================================
 
     fun seekTo(
         positionMs: Long
@@ -1351,9 +1453,9 @@ class PlaybackViewModel(
     }
 
 
-    // ==========================================
+    // ==========================================================
     // POSITION
-    // ==========================================
+    // ==========================================================
 
     fun currentPosition(): Long {
 
@@ -1363,9 +1465,9 @@ class PlaybackViewModel(
     }
 
 
-    // ==========================================
+    // ==========================================================
     // DURATION
-    // ==========================================
+    // ==========================================================
 
     fun duration(): Long {
 
@@ -1376,9 +1478,9 @@ class PlaybackViewModel(
     }
 
 
-    // ==========================================
+    // ==========================================================
     // CLEAR ERROR
-    // ==========================================
+    // ==========================================================
 
     fun clearError() {
 
@@ -1387,9 +1489,9 @@ class PlaybackViewModel(
     }
 
 
-    // ==========================================
+    // ==========================================================
     // CLEANUP
-    // ==========================================
+    // ==========================================================
 
     override fun onCleared() {
 
